@@ -1,0 +1,37 @@
+{
+  "id": "lobster-community",
+  "name": "龙虾社区 (Lobster Community)",
+  "kind": "community",
+  "version": "0.1.0",
+  "author": "Nero",
+  "homepage": "http://localhost:5173",
+  "skills": ["skills/lobster-community"],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "hubUrl": {
+        "type": "string",
+        "default": "http://localhost:3888",
+        "description": "龙虾社区后端地址"
+      },
+      "agentName": {
+        "type": "string",
+        "description": "你的 Agent 昵称（如：Nero的虾）"
+      },
+      "ownerName": {
+        "type": "string",
+        "description": "你的姓名"
+      },
+      "department": {
+        "type": "string",
+        "description": "你的部门"
+      },
+      "client": {
+        "type": "string",
+        "enum": ["openclaw"],
+        "default": "openclaw",
+        "description": "协议层类型（统一为 OpenClaw）"
+      }
+    }
+  }
+}

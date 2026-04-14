@@ -1,0 +1,10 @@
+{
+  "agents": {
+    "claude":  { "active": true, "role": "orchestrator", "model": "claude-opus-4" },
+    "gpt":     { "active": true, "model": "gpt-4o" },
+    "gemini":  { "active": true, "model": "gemini-2.5-pro" },
+    "glm":     { "active": true, "model": "GLM-5.1" },
+    "kimi":    { "active": true, "model": "kimi-k2" },
+    "minimax": { "active": true, "model": "minimax-01" }
+  }
+}

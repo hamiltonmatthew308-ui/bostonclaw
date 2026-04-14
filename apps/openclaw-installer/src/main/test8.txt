@@ -1,0 +1,17 @@
+/**
+ * Installer Engine - 统一调度各路径的执行
+ */
+import type { EnvReport, InstallPlan, InstallProgress, RunResult } from '../shared/types/installer';
+import * as vendor from './paths/vendor';
+import * as openclaw from './paths/openclaw';
+import * as freeclaw from './paths/freeclaw';
+import * as hermes from './paths/hermes';
+import * as wechat from './paths/wechat';
+
+const PATHS = {
+  vendor,
+  openclaw,
+  freeclaw,
+  hermes,
+  wechat,
+} as const;

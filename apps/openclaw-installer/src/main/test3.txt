@@ -1,0 +1,7 @@
+const PATHS = {
+  vendor,
+  openclaw,
+  freeclaw,
+  hermes,
+  wechat,
+} as const;
