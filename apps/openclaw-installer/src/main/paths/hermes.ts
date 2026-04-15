@@ -4,7 +4,6 @@ import { detectEnvironment } from '../env/detector';
 import { runShellStream } from '../utils/shell-stream';
 
 const HERMES_INSTALL_SH = 'https://hermes-agent.nousresearch.com/install.sh';
-const HERMES_INSTALL_PS1 = 'https://raw.githubusercontent.com/NousResearch/hermes-agent/main/install.ps1';
 
 export async function checkEnv(): Promise<EnvReport> {
   return detectEnvironment();
@@ -88,71 +87,121 @@ export async function run(_plan: InstallPlan, onProgress: (p: InstallProgress) =
 
     onProgress({ step: '启动安装脚本', percent: 8, log: '运行 Hermes Agent 一键安装...' });
 
-    // Windows: 加 -ExecutionPolicy Bypass -NoProfile 提高企业环境兼容性
-    const [cmd, args] = isWin
-      ? ['powershell', ['-ExecutionPolicy', 'Bypass', '-NoProfile', '-Command', `irm ${HERMES_INSTALL_PS1} | iex`]]
-      : ['bash', ['-c', `curl -fsSL ${HERMES_INSTALL_SH} | bash`]];
+    const unixInstallCmd = `curl -fsSL ${HERMES_INSTALL_SH} | bash`;
+    const candidates = isWin
+      ? [
+          { command: 'bash', args: ['-lc', unixInstallCmd], hint: 'Git Bash' },
+          { command: 'wsl', args: ['bash', '-lc', unixInstallCmd], hint: 'WSL' },
+        ]
+      : [{ command: 'bash', args: ['-c', unixInstallCmd], hint: 'bash' }];
 
-    void runShellStream({
-      command: cmd,
-      args,
-      step: '安装中...',
-      startPercent: 10,
-      endPercent: 92,
-      onProgress: (p) => {
-        const line = p.log.trim();
-        if (line) logLines.push(line);
-        onProgress(p);
-      },
-    }).then(({ code }) => {
-
-      if (code !== 0) {
-        const logText = logLines.join('\n');
-        const diagnosed = diagnoseFailure(logText);
-        const message = diagnosed
-          ? diagnosed
-          : `安装脚本退出码 ${code}，请检查网络或权限后重试。`;
-
+    const runAttempt = (idx: number): void => {
+      const candidate = candidates[idx];
+      if (!candidate) {
         resolve({
           success: false,
-          message,
-          nextAction: 'none',
-          logs: logLines.slice(-50),
+          message:
+            '无法启动 Hermes 安装脚本：未找到可用的 bash 环境。Windows 请安装 Git Bash 或启用 WSL 后重试。',
+          nextAction: 'show-guide',
+          nextUrl: 'https://hermes-agent.nousresearch.com/',
+          logs: logLines.slice(-80),
         });
         return;
       }
 
-      // 脚本执行成功，运行安装后验证
-      onProgress({ step: '验证安装', percent: 95, log: '脚本完成，正在验证 Hermes 是否可用...' });
+      onProgress({
+        step: '启动安装脚本',
+        percent: 9,
+        log: `尝试使用 ${candidate.hint} 执行官方安装命令...`,
+      });
 
-      void verifyHermes().then((ver) => {
-        if (ver.found) {
-          const verInfo = ver.version ? ` — ${ver.version}` : '';
-          onProgress({ step: '安装完成', percent: 100, log: `✓ Hermes Agent 安装成功 (${ver.path})${verInfo}` });
-          resolve({
-            success: true,
-            message: `Hermes Agent 已安装${ver.version ? ` (${ver.version})` : ''}。在终端运行 \`hermes start\` 即可使用。`,
-            nextAction: 'show-guide',
-            nextUrl: 'https://github.com/NousResearch/hermes-agent#getting-started',
+      void runShellStream({
+        command: candidate.command,
+        args: candidate.args,
+        step: '安装中...',
+        startPercent: 10,
+        endPercent: 92,
+        onProgress: (p) => {
+          const line = p.log.trim();
+          if (line) logLines.push(line);
+          onProgress(p);
+        },
+      })
+        .then(({ code }) => {
+          if (code !== 0) {
+            const isCommandNotFound = logLines.some((l) =>
+              /not recognized|not found|command not found|is not recognized/i.test(l),
+            );
+            if (isWin && isCommandNotFound && idx < candidates.length - 1) {
+              onProgress({
+                step: '启动安装脚本',
+                percent: 10,
+                log: `${candidate.hint} 不可用，切换下一种方式...`,
+              });
+              runAttempt(idx + 1);
+              return;
+            }
+
+            const logText = logLines.join('\n');
+            const diagnosed = diagnoseFailure(logText);
+            const message = diagnosed
+              ? diagnosed
+              : `安装脚本退出码 ${code}，请检查网络或权限后重试。`;
+
+            resolve({
+              success: false,
+              message,
+              nextAction: 'none',
+              logs: logLines.slice(-50),
+            });
+            return;
+          }
+
+          // 脚本执行成功，运行安装后验证
+          onProgress({ step: '验证安装', percent: 95, log: '脚本完成，正在验证 Hermes 是否可用...' });
+
+          void verifyHermes().then((ver) => {
+            if (ver.found) {
+              const verInfo = ver.version ? ` — ${ver.version}` : '';
+              onProgress({ step: '安装完成', percent: 100, log: `✓ Hermes Agent 安装成功 (${ver.path})${verInfo}` });
+              resolve({
+                success: true,
+                message: `Hermes Agent 已安装${ver.version ? ` (${ver.version})` : ''}。在终端运行 \`hermes start\` 即可使用。`,
+                nextAction: 'show-guide',
+                nextUrl: 'https://github.com/NousResearch/hermes-agent#getting-started',
+              });
+            } else {
+              // 脚本成功但 hermes 不在 PATH 上
+              onProgress({ step: '验证完成', percent: 98, log: '⚠ 脚本成功，但 hermes 命令未在 PATH 中找到。可能需要重新打开终端。' });
+              resolve({
+                success: true,
+                message: '安装脚本已成功执行，但未检测到 hermes 命令。请重新打开终端后运行 `hermes start`。如果仍然找不到，请尝试手动添加 PATH。',
+                nextAction: 'show-guide',
+                nextUrl: 'https://github.com/NousResearch/hermes-agent#getting-started',
+              });
+            }
           });
-        } else {
-          // 脚本成功但 hermes 不在 PATH 上
-          onProgress({ step: '验证完成', percent: 98, log: '⚠ 脚本成功，但 hermes 命令未在 PATH 中找到。可能需要重新打开终端。' });
+        })
+        .catch((err) => {
+          const mayRetry = isWin && idx < candidates.length - 1;
+          if (mayRetry) {
+            onProgress({
+              step: '启动安装脚本',
+              percent: 10,
+              log: `${candidate.hint} 启动失败 (${err.message})，切换下一种方式...`,
+            });
+            runAttempt(idx + 1);
+            return;
+          }
           resolve({
-            success: true,
-            message: '安装脚本已成功执行，但未检测到 hermes 命令。请重新打开终端后运行 `hermes start`。如果仍然找不到，请尝试手动添加 PATH。',
-            nextAction: 'show-guide',
-            nextUrl: 'https://github.com/NousResearch/hermes-agent#getting-started',
+            success: false,
+            message: `无法启动安装脚本: ${err.message}`,
+            nextAction: 'none',
+            logs: logLines,
           });
-        }
-      });
-    }).catch((err) => {
-      resolve({
-        success: false,
-        message: `无法启动安装脚本: ${err.message}`,
-        nextAction: 'none',
-        logs: logLines,
-      });
-    });
+        });
+    };
+
+    runAttempt(0);
   });
 }
