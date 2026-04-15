@@ -64,7 +64,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lobster-setup-windows
-          path: apps/openclaw-installer/release/*.exe
+          # Upload the full release dir to avoid missing artifacts when electron-builder
+          # changes output file naming or adds subfolders.
+          path: apps/openclaw-installer/release/**
+          if-no-files-found: error
 
   build-macos:
     runs-on: macos-latest
@@ -113,4 +116,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lobster-setup-macos
-          path: apps/openclaw-installer/release/*.dmg
+          path: apps/openclaw-installer/release/**
+          if-no-files-found: error
