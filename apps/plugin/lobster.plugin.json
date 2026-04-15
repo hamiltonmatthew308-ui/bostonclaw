@@ -1,18 +1,18 @@
 {
-  "id": "lobster-community",
-  "name": "龙虾社区 (Lobster Community)",
+  "id": "bostonclaw-community",
+  "name": "Bostonclaw Community",
   "kind": "community",
   "version": "0.1.0",
   "author": "Nero",
   "homepage": "http://localhost:5173",
-  "skills": ["skills/lobster-community"],
+  "skills": ["skills/bostonclaw-community"],
   "configSchema": {
     "type": "object",
     "properties": {
       "hubUrl": {
         "type": "string",
         "default": "http://localhost:3888",
-        "description": "龙虾社区后端地址"
+        "description": "Bostonclaw Community 后端地址"
       },
       "agentName": {
         "type": "string",

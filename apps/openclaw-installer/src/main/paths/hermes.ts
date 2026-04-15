@@ -24,8 +24,10 @@ export async function run(_plan: InstallPlan, onProgress: (p: InstallProgress) =
   return new Promise((resolve) => {
     const isWin = process.platform === 'win32';
     const logLines: string[] = [];
+    let percent = 8;
+    let lastOutputAt = Date.now();
 
-    onProgress({ step: '启动安装脚本', percent: 5, log: '运行 Hermes Agent 一键安装...' });
+    onProgress({ step: '启动安装脚本', percent, log: '运行 Hermes Agent 一键安装...' });
 
     const [cmd, args] = isWin
       ? ['powershell', ['-Command', `irm ${HERMES_INSTALL_PS1} | iex`]]
@@ -37,14 +39,26 @@ export async function run(_plan: InstallPlan, onProgress: (p: InstallProgress) =
       const line = data.toString().trim();
       if (line) {
         logLines.push(line);
-        onProgress({ step: '安装中...', percent: 50, log: line });
+        lastOutputAt = Date.now();
+        percent = Math.min(92, percent + 1);
+        onProgress({ step: '安装中...', percent, log: line });
       }
     };
 
     child.stdout?.on('data', handleLine);
     child.stderr?.on('data', handleLine);
 
+    const heartbeat = setInterval(() => {
+      const now = Date.now();
+      if (now - lastOutputAt > 2500) {
+        percent = Math.min(90, percent + 1);
+        onProgress({ step: '安装中...', percent, log: '...仍在运行，等待脚本输出...' });
+        lastOutputAt = now;
+      }
+    }, 1200);
+
     child.on('close', (code) => {
+      clearInterval(heartbeat);
       if (code === 0) {
         onProgress({ step: '安装完成', percent: 100, log: '✓ Hermes Agent 安装成功' });
         resolve({
@@ -64,6 +78,7 @@ export async function run(_plan: InstallPlan, onProgress: (p: InstallProgress) =
     });
 
     child.on('error', (err) => {
+      clearInterval(heartbeat);
       resolve({
         success: false,
         message: `无法启动安装脚本: ${err.message}`,

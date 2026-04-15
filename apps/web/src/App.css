@@ -610,6 +610,27 @@ section {
   widows: 2;
 }
 
+.step-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 12px;
+  color: var(--copper);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  transition: all 0.2s ease;
+}
+
+.step-link:hover {
+  color: #b33a1f;
+  transform: translateX(2px);
+}
+
+/* ── Section Styling ───────────────────────────────────── */
+
 /* ── Template Library ──────────────────────────────────── */
 
 .library-layout {

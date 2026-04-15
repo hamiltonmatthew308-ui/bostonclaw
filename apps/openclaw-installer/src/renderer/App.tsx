@@ -110,7 +110,7 @@ function App() {
         currentStep={STEP_MAP[currentStep]}
         stepIcons={STEP_ICONS}
         sidebarSupplement={sidebarSupplement}
-        headerKicker="BostonClaw Installer"
+        headerKicker="Bostonclaw Installer"
         onBack={
           currentStep === 'quiz'
             ? undefined

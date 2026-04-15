@@ -19,7 +19,6 @@ export async function run(_plan: InstallPlan, onProgress: (p: InstallProgress) =
     success: true,
     message: '已推荐 QClaw（微信接入）。',
     nextAction: 'show-guide',
-    nextUrl: 'https://lobster.community/download?q=qclaw',
+    nextUrl: 'https://bostonclaw.community/download?q=qclaw',
   };
 }
-

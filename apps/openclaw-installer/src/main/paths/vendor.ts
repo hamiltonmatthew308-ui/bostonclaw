@@ -19,7 +19,6 @@ export async function run(_plan: InstallPlan, onProgress: (p: InstallProgress) =
     success: true,
     message: '已准备好跳转到厂商封装版下载页。',
     nextAction: 'show-guide',
-    nextUrl: 'https://lobster.community/download',
+    nextUrl: 'https://bostonclaw.community/download',
   };
 }
-

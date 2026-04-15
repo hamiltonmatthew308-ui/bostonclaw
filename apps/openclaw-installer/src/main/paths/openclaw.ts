@@ -18,7 +18,7 @@ function getUserDataPath(): string {
   try {
     return app.getPath('userData');
   } catch {
-    return join(homedir(), '.lobster-installer');
+    return join(homedir(), '.bostonclaw-installer');
   }
 }
 

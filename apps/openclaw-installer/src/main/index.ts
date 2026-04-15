@@ -1,5 +1,5 @@
 /**
- * Lobster Installer - Main Process Entry
+ * Bostonclaw Installer - Main Process Entry
  * 企业 AI Agent 安装桥主进程入口
  */
 import { app, BrowserWindow, shell } from 'electron';
@@ -33,7 +33,7 @@ function createWindow(): BrowserWindow {
     minWidth: 800,
     minHeight: 600,
     icon: getAppIcon(),
-    title: 'Lobster 安装桥',
+    title: 'Bostonclaw 安装器',
     webPreferences: {
       preload: join(__dirname, '../preload/preload.js'),
       nodeIntegration: false,
@@ -76,7 +76,7 @@ function createWindow(): BrowserWindow {
  * 初始化应用
  */
 async function initialize(): Promise<void> {
-  console.log('[Lobster Installer] Application Starting');
+  console.log('[Bostonclaw Installer] Application Starting');
 
   // 创建主窗口
   mainWindow = createWindow();
@@ -90,18 +90,18 @@ async function initialize(): Promise<void> {
   });
 }
 
-// 注册 lobster:// 协议（支持网页一键唤起安装器）
+// 注册 bostonclaw:// 协议（支持网页一键唤起安装器）
 if (process.defaultApp) {
   if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient('lobster', process.execPath, [process.argv[1]!]);
+    app.setAsDefaultProtocolClient('bostonclaw', process.execPath, [process.argv[1]!]);
   }
 } else {
-  app.setAsDefaultProtocolClient('lobster');
+  app.setAsDefaultProtocolClient('bostonclaw');
 }
 
 // 处理协议唤起
 app.on('open-url', (_event, url) => {
-  console.log('[Lobster Installer] Open URL:', url);
+  console.log('[Bostonclaw Installer] Open URL:', url);
   if (!mainWindow) {
     mainWindow = createWindow();
   } else {

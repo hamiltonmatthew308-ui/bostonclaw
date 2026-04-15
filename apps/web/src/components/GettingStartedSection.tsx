@@ -1,13 +1,19 @@
+import { Link } from 'react-router-dom'
+
 const steps = [
   {
     index: '01',
     title: '下载安装器',
     body: '像装微信一样简单。Windows 下载 .exe，Mac 下载 .dmg，双击安装，不需要管理员权限。',
+    link: '/download',
+    linkText: '去下载 →',
   },
   {
     index: '02',
     title: '选一个 AI 同事',
     body: '不知道选什么？先试试「会议纪要员」或「销售情报员」。点一下就能装到你的电脑上。',
+    link: '/templates',
+    linkText: '看看模板 →',
   },
   {
     index: '03',
@@ -44,6 +50,9 @@ export function GettingStartedSection() {
               <p className="manual-index">{step.index}</p>
               <h3>{step.title}</h3>
               <p>{step.body}</p>
+              {step.link && (
+                <Link to={step.link} className="step-link">{step.linkText}</Link>
+              )}
             </article>
           ))}
         </div>

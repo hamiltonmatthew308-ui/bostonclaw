@@ -1,13 +1,13 @@
 {
   "name": "lobster-installer",
   "version": "0.1.0",
-  "description": "Lobster 安装桥 - 企业 AI Agent Runtime 与模板的一键接入向导",
+  "description": "Bostonclaw 安装器 - 企业 AI Agent Runtime 的一键接入向导",
   "main": "dist-electron/main/index.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/hamiltonmatthew308-ui/bostonclaw.git"
   },
-  "author": "Lobster",
+  "author": "Bostonclaw",
   "license": "MIT",
   "private": true,
   "scripts": {

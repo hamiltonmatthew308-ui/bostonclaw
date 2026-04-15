@@ -33,7 +33,7 @@ app.get('/health', (c) => c.json({ ok: true, timestamp: new Date().toISOString()
 // 启动心跳监控
 startHeartbeatWatcher();
 
-console.log(`🦞 Lobster Community Server running on http://localhost:${PORT}`);
+console.log(`Bostonclaw Community Server running on http://localhost:${PORT}`);
 
 export default {
   port: PORT,

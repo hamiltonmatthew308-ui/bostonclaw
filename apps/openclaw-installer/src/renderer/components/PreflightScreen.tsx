@@ -10,6 +10,8 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
+  RefreshCcw,
+  Braces,
 } from 'lucide-react';
 import { useInstallerStore } from '../store';
 import { useInstaller } from '../hooks/useInstaller';
@@ -28,18 +30,25 @@ export function PreflightScreen() {
   const { checkEnv, plan } = useInstaller();
   const [loading, setLoading] = useState(false);
 
+  const runChecks = async (opts?: { experimentalWinNative?: boolean }) => {
+    if (!selectedPath) return;
+    setLoading(true);
+    try {
+      const report = await checkEnv(selectedPath);
+      setEnvReport(report);
+      const p = await plan(selectedPath, { experimentalWinNative: opts?.experimentalWinNative ?? winExperimentalNative });
+      setPlan(p);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!envReport && selectedPath) {
-      setLoading(true);
-      checkEnv(selectedPath)
-        .then((report) => {
-          setEnvReport(report);
-          return plan(selectedPath, { experimentalWinNative: winExperimentalNative });
-        })
-        .then((p) => setPlan(p))
-        .finally(() => setLoading(false));
+      runChecks();
     }
-  }, [envReport, selectedPath, checkEnv, plan, setEnvReport, setPlan, winExperimentalNative]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [envReport, selectedPath]);
 
   const items = [
     {
@@ -49,6 +58,16 @@ export function PreflightScreen() {
         ? `${envReport.os.platform} ${envReport.os.arch} (${envReport.os.version})`
         : '检测中...',
       ok: true,
+    },
+    {
+      label: 'Python',
+      icon: <Braces size={18} />,
+      value: envReport
+        ? envReport.python.installed
+          ? `已安装 ${envReport.python.version ?? ''}`.trim()
+          : '未安装'
+        : '检测中...',
+      ok: !!envReport?.python.installed,
     },
     ...(selectedPath === 'openclaw'
       ? [
@@ -62,8 +81,9 @@ export function PreflightScreen() {
                   ? '未安装（建议 WSL2）'
                   : '未安装（将自动下载）'
               : '检测中...',
-            // Node 缺失并不算失败：我们会自动下载（或引导 WSL2）。
-            ok: true,
+            // Missing Node is not a blocker (we can auto-download), but we still show it as "not installed"
+            // so the user can trust this is a real check.
+            ok: !!envReport?.nodejs.installed,
           },
         ]
       : []),
@@ -77,7 +97,7 @@ export function PreflightScreen() {
                 ? `已安装 ${envReport.ollama.version ?? ''}`.trim()
                 : '未安装（FreeClaw 将引导安装）'
               : '检测中...',
-            ok: true,
+            ok: !!envReport?.ollama.installed,
           },
         ]
       : []),
@@ -111,12 +131,36 @@ export function PreflightScreen() {
 
   return (
     <div style={{ display: 'grid', gap: 20 }}>
-      {loading && (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#6F655B' }}>
-          <Loader2 size={18} className="animate-spin" />
-          正在检测环境...
+          {loading ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} color="#1A7A4A" />}
+          <span style={{ fontSize: 13, fontWeight: 600 }}>
+            {loading ? '正在检测环境...' : '环境检测完成，可点击重新检测'}
+          </span>
         </div>
-      )}
+
+        <button
+          type="button"
+          onClick={() => runChecks()}
+          disabled={loading || !selectedPath}
+          className="lobster-control"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '10px 14px',
+            border: '2px solid #2A241E',
+            background: '#FDFCF9',
+            fontSize: 12,
+            fontWeight: 800,
+            cursor: loading ? 'not-allowed' : 'pointer',
+            opacity: loading ? 0.55 : 1,
+          }}
+        >
+          <RefreshCcw size={14} />
+          重新检测
+        </button>
+      </div>
 
       <div style={{ display: 'grid', gap: 12 }}>
         {items.map((item) => (
@@ -189,10 +233,7 @@ export function PreflightScreen() {
               setWinExperimentalNative(checked);
               // Re-plan so warnings/steps reflect the experimental switch.
               if (selectedPath) {
-                setLoading(true);
-                plan(selectedPath, { experimentalWinNative: checked })
-                  .then((p) => setPlan(p))
-                  .finally(() => setLoading(false));
+                runChecks({ experimentalWinNative: checked });
               } else if (planObj) {
                 setPlan({ ...planObj, experimentalWinNative: checked });
               }

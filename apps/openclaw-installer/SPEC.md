@@ -256,7 +256,7 @@ pnpm run package:mac        # electron-builder → DMG (secondary)
 electron-builder.yml 关键配置
 yaml
 productName: "OpenClaw 安装向导"
-appId: "com.lobster.openclaw-installer"
+appId: "com.bostonclaw.openclaw-installer"
 asar: true
 
 extraResources:

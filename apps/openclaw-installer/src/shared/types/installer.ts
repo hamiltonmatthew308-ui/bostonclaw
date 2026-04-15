@@ -1,5 +1,5 @@
 /**
- * Shared types for Lobster Installer
+ * Shared types for Bostonclaw Installer
  */
 
 export type InstallPath = 'vendor' | 'openclaw' | 'freeclaw' | 'hermes' | 'wechat';

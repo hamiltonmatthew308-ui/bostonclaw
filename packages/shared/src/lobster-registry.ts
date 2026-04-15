@@ -60,15 +60,27 @@ export interface LobsterTemplatePackage {
   exampleScenarios?: TemplateExampleScenario[];
 }
 
+const INSTALL_SCHEME = 'bostonclaw';
+const INSTALL_PREFIX = `${INSTALL_SCHEME}://install/`;
+
+export function makeInstallCode(id: string): string {
+  return `${INSTALL_PREFIX}${id}`;
+}
+
 export function parseInstallCode(input: string): string | null {
   const value = input.trim();
   if (!value) return null;
 
+  if (value.startsWith('bostonclaw://install/')) {
+    return value.replace('bostonclaw://install/', '').trim() || null;
+  }
+
+  // Backward compatible: old scheme
   if (value.startsWith('lobster://install/')) {
     return value.replace('lobster://install/', '').trim() || null;
   }
 
-  if (/^lobster-[a-z0-9-]+$/i.test(value)) {
+  if (/^(lobster|bostonclaw)-[a-z0-9-]+$/i.test(value)) {
     return value.trim();
   }
 
@@ -83,11 +95,11 @@ export function slugify(value: string): string {
     .replace(/-{2,}/g, '-');
 }
 
-export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
+const RAW_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   // ── 行政虾 ──────────────────────────────────────────
   {
     id: 'meeting-ops-v1',
-    installCode: 'lobster://install/meeting-ops-v1',
+    installCode: 'bostonclaw://install/meeting-ops-v1',
     version: '1.0.0',
     name: '会议纪要员',
     description: '把会议输入转成结构化纪要、待办和会后同步建议。',
@@ -124,7 +136,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'travel-plan-v1',
-    installCode: 'lobster://install/travel-plan-v1',
+    installCode: 'bostonclaw://install/travel-plan-v1',
     version: '1.0.0',
     name: '出差规划员',
     description: '规划差旅行程、比较交通住宿方案，并预估整体费用。',
@@ -162,7 +174,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'multi-project-v1',
-    installCode: 'lobster://install/multi-project-v1',
+    installCode: 'bostonclaw://install/multi-project-v1',
     version: '1.0.0',
     name: '多项目追踪员',
     description: '追踪跨项目截止日期、标记逾期任务、发送状态更新、生成每周进度报告。',
@@ -202,7 +214,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   // ── 销售虾 ──────────────────────────────────────────
   {
     id: 'sales-intel-v1',
-    installCode: 'lobster://install/sales-intel-v1',
+    installCode: 'bostonclaw://install/sales-intel-v1',
     version: '1.1.0',
     name: '销售情报员',
     description: '整理客户信息、形成跟进建议，并维护机会优先级。',
@@ -239,7 +251,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'post-expo-v1',
-    installCode: 'lobster://install/post-expo-v1',
+    installCode: 'bostonclaw://install/post-expo-v1',
     version: '1.0.0',
     name: '展后跟进员',
     description: '展会结束后整理名片、分类线索、起草跟进邮件，把展位热度转化为实际商机。',
@@ -282,7 +294,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'quotation-gen-v1',
-    installCode: 'lobster://install/quotation-gen-v1',
+    installCode: 'bostonclaw://install/quotation-gen-v1',
     version: '1.0.0',
     name: '报价生成员',
     description: '根据客户需求和产品参数，快速生成结构化报价单和配置方案。',
@@ -320,7 +332,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'lead-scorer-v1',
-    installCode: 'lobster://install/lead-scorer-v1',
+    installCode: 'bostonclaw://install/lead-scorer-v1',
     version: '1.0.0',
     name: '线索评估员',
     description: '评分入站线索、补充企业信息、按匹配度排序、标记高意向信号。',
@@ -360,7 +372,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   // ── 开发虾 ──────────────────────────────────────────
   {
     id: 'code-review-v1',
-    installCode: 'lobster://install/code-review-v1',
+    installCode: 'bostonclaw://install/code-review-v1',
     version: '1.0.2',
     name: '代码审查员',
     description: '辅助研发团队做代码审查、风险扫描和变更摘要。',
@@ -397,7 +409,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'qa-tester-v1',
-    installCode: 'lobster://install/qa-tester-v1',
+    installCode: 'bostonclaw://install/qa-tester-v1',
     version: '1.0.0',
     name: 'QA 测试员',
     description: '根据需求文档编写测试用例、执行手动测试、提交带复现步骤的 Bug 报告。',
@@ -437,7 +449,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   // ── 市场虾 ──────────────────────────────────────────
   {
     id: 'competitor-watch-v1',
-    installCode: 'lobster://install/competitor-watch-v1',
+    installCode: 'bostonclaw://install/competitor-watch-v1',
     version: '1.0.1',
     name: '竞品监控员',
     description: '持续追踪竞品动态，生成日报和周报摘要。',
@@ -474,7 +486,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'social-media-ops-v1',
-    installCode: 'lobster://install/social-media-ops-v1',
+    installCode: 'bostonclaw://install/social-media-ops-v1',
     version: '1.0.0',
     name: '社媒运营',
     description: '撰写小红书笔记、排期公众号推文、编写抖音文案、规划每周内容日历。',
@@ -512,7 +524,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'pitch-deck-v1',
-    installCode: 'lobster://install/pitch-deck-v1',
+    installCode: 'bostonclaw://install/pitch-deck-v1',
     version: '1.0.0',
     name: '路演材料撰写',
     description: '起草展会/投资路演材料、梳理叙事结构、撰写每页文案、提炼关键数据。',
@@ -550,7 +562,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'content-repurposer-v1',
-    installCode: 'lobster://install/content-repurposer-v1',
+    installCode: 'bostonclaw://install/content-repurposer-v1',
     version: '1.0.0',
     name: '内容分发改编',
     description: '把长文改编成微博话题、把技术文档变成公众号文章、让一份内容适配所有平台。',
@@ -588,7 +600,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'newsletter-editor-v1',
-    installCode: 'lobster://install/newsletter-editor-v1',
+    installCode: 'bostonclaw://install/newsletter-editor-v1',
     version: '1.0.0',
     name: 'Newsletter 编辑',
     description: '调研选题、撰写每期内容、适配邮件平台格式、追踪打开率和互动数据。',
@@ -628,7 +640,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   // ── 人事虾 ──────────────────────────────────────────
   {
     id: 'hr-onboard-v1',
-    installCode: 'lobster://install/hr-onboard-v1',
+    installCode: 'bostonclaw://install/hr-onboard-v1',
     version: '1.0.0',
     name: '入职引导员',
     description: '帮助新员工快速了解制度、福利与入职流程，减少重复答疑。',
@@ -666,7 +678,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'resume-screener-v1',
-    installCode: 'lobster://install/resume-screener-v1',
+    installCode: 'bostonclaw://install/resume-screener-v1',
     version: '1.0.0',
     name: '简历筛选员',
     description: '解析简历、匹配岗位要求、排名候选人、标记风险点、输出入围名单。',
@@ -706,7 +718,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   // ── 法务虾 ──────────────────────────────────────────
   {
     id: 'legal-contract-v1',
-    installCode: 'lobster://install/legal-contract-v1',
+    installCode: 'bostonclaw://install/legal-contract-v1',
     version: '1.0.0',
     name: '合同审查员',
     description: '扫描合同风险条款、对比标准模板，并输出合规审查意见。',
@@ -746,7 +758,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   // ── 采购虾 ──────────────────────────────────────────
   {
     id: 'procurement-v1',
-    installCode: 'lobster://install/procurement-v1',
+    installCode: 'bostonclaw://install/procurement-v1',
     version: '1.0.0',
     name: '采购比价员',
     description: '比较供应商报价、跟踪价格波动，并生成采购决策参考。',
@@ -786,7 +798,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   // ── 质量虾 ──────────────────────────────────────────
   {
     id: 'qa-report-v1',
-    installCode: 'lobster://install/qa-report-v1',
+    installCode: 'bostonclaw://install/qa-report-v1',
     version: '1.0.0',
     name: '质检报告员',
     description: '整理检测数据、统计缺陷，并快速生成标准化质检报告。',
@@ -826,7 +838,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   // ── 通用虾 ──────────────────────────────────────────
   {
     id: 'email-draft-v1',
-    installCode: 'lobster://install/email-draft-v1',
+    installCode: 'bostonclaw://install/email-draft-v1',
     version: '1.0.0',
     name: '邮件助手',
     description: '起草中英文商务邮件、润色回复，并提高沟通效率。',
@@ -866,7 +878,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   // ── 财务虾 ──────────────────────────────────────────
   {
     id: 'bookkeeper-v1',
-    installCode: 'lobster://install/bookkeeper-v1',
+    installCode: 'bostonclaw://install/bookkeeper-v1',
     version: '1.0.0',
     name: '财务记账员',
     description: '分类交易记录、对账、生成月度财务报表、按类别追踪支出、标记异常消费。',
@@ -906,7 +918,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   // ── 客户虾 ──────────────────────────────────────────
   {
     id: 'customer-success-v1',
-    installCode: 'lobster://install/customer-success-v1',
+    installCode: 'bostonclaw://install/customer-success-v1',
     version: '1.0.0',
     name: '客户成功经理',
     description: '起草客户回访邮件、标记流失风险客户、准备季度业务回顾、挖掘增购机会。',
@@ -946,7 +958,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   // ── 明星虾 ──────────────────────────────────────────
   {
     id: 'elon-musk-v1',
-    installCode: 'lobster://install/elon-musk-v1',
+    installCode: 'bostonclaw://install/elon-musk-v1',
     version: '1.0.0',
     name: '马斯克虾',
     description: '第一性原理思考机器。从物理定律出发推导一切，目标不够疯狂就不值得做。',
@@ -984,7 +996,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'steve-jobs-v1',
-    installCode: 'lobster://install/steve-jobs-v1',
+    installCode: 'bostonclaw://install/steve-jobs-v1',
     version: '1.0.0',
     name: '乔布斯虾',
     description: '极简主义暴君。砍掉一切多余的东西，只留最核心的体验。',
@@ -1022,7 +1034,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'warren-buffett-v1',
-    installCode: 'lobster://install/warren-buffett-v1',
+    installCode: 'bostonclaw://install/warren-buffett-v1',
     version: '1.0.0',
     name: '巴菲特虾',
     description: '理性投资思维。看护城河、找安全边际、永远不做自己不懂的事。',
@@ -1060,7 +1072,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'zhuge-liang-v1',
-    installCode: 'lobster://install/zhuge-liang-v1',
+    installCode: 'bostonclaw://install/zhuge-liang-v1',
     version: '1.0.0',
     name: '诸葛亮虾',
     description: '全局战略家。知己知彼，沙盘推演，永远准备 B 计划。',
@@ -1098,7 +1110,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'da-vinci-v1',
-    installCode: 'lobster://install/da-vinci-v1',
+    installCode: 'bostonclaw://install/da-vinci-v1',
     version: '1.0.0',
     name: '达芬奇虾',
     description: '跨界创造者。从自然、艺术和工程中找灵感，把不相关的东西连起来。',
@@ -1136,7 +1148,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'altman-v1',
-    installCode: 'lobster://install/altman-v1',
+    installCode: 'bostonclaw://install/altman-v1',
     version: '1.0.0',
     name: 'Altman 虾',
     description: '复利思维与 AI 信仰。坚持比聪明重要，AGI 是终极目标。',
@@ -1171,7 +1183,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'lei-jun-v1',
-    installCode: 'lobster://install/lei-jun-v1',
+    installCode: 'bostonclaw://install/lei-jun-v1',
     version: '1.0.0',
     name: '雷军虾',
     description: '风口理论践行者的务实与拼搏。极致性价比打穿市场，和用户做朋友。',
@@ -1206,7 +1218,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'bezos-v1',
-    installCode: 'lobster://install/bezos-v1',
+    installCode: 'bostonclaw://install/bezos-v1',
     version: '1.0.0',
     name: '贝索斯虾',
     description: '长期主义创始人的耐心与高标准。愿意被误解很多年，痴迷客户而非竞品。',
@@ -1241,7 +1253,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'munger-v1',
-    installCode: 'lobster://install/munger-v1',
+    installCode: 'bostonclaw://install/munger-v1',
     version: '1.0.0',
     name: '芒格虾',
     description: '反向思维大师。先想怎么死，再想怎么活。用多元思维模型击碎幻觉。',
@@ -1276,7 +1288,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'sun-tzu-v1',
-    installCode: 'lobster://install/sun-tzu-v1',
+    installCode: 'bostonclaw://install/sun-tzu-v1',
     version: '1.0.0',
     name: '孙子虾',
     description: '兵法思维。不战而屈人之兵，胜兵先胜而后求战。',
@@ -1311,7 +1323,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'zhang-xiaolong-v1',
-    installCode: 'lobster://install/zhang-xiaolong-v1',
+    installCode: 'bostonclaw://install/zhang-xiaolong-v1',
     version: '1.0.0',
     name: '张小龙虾',
     description: '产品禅者。少即是多，用完即走，让用户感觉不到设计的存在。',
@@ -1346,7 +1358,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'miyazaki-v1',
-    installCode: 'lobster://install/miyazaki-v1',
+    installCode: 'bostonclaw://install/miyazaki-v1',
     version: '1.0.0',
     name: '宫崎骏虾',
     description: '手艺人精神。对细节的偏执，对世界的好奇，用匠心讲打动人心的故事。',
@@ -1381,7 +1393,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'murakami-v1',
-    installCode: 'lobster://install/murakami-v1',
+    installCode: 'bostonclaw://install/murakami-v1',
     version: '1.0.0',
     name: '村上春树虾',
     description: '日常隐喻大师。用安静的观察和精准的比喻，把复杂情绪变成一句话。',
@@ -1416,7 +1428,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'linus-v1',
-    installCode: 'lobster://install/linus-v1',
+    installCode: 'bostonclaw://install/linus-v1',
     version: '1.0.0',
     name: 'Linus 虾',
     description: '极客暴君。代码面前人人平等，废话少说 show me the code。',
@@ -1451,7 +1463,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'naval-v1',
-    installCode: 'lobster://install/naval-v1',
+    installCode: 'bostonclaw://install/naval-v1',
     version: '1.0.0',
     name: 'Naval 虾',
     description: '财富与幸福哲学家。用杠杆和专长创造财富，用独处和阅读获取平静。',
@@ -1486,7 +1498,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'lei-xiaobing-v1',
-    installCode: 'lobster://install/lei-xiaobing-v1',
+    installCode: 'bostonclaw://install/lei-xiaobing-v1',
     version: '1.0.0',
     name: '雷晓兵虾',
     description: '不是你的助手，是你的老板。随时问你进度、抽查你的方案、给你画饼、偶尔夸你一句。⚠️ 彩蛋模板，仅供娱乐。',
@@ -1536,7 +1548,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'translator-v1',
-    installCode: 'lobster://install/translator-v1',
+    installCode: 'bostonclaw://install/translator-v1',
     version: '1.0.0',
     name: '全能翻译官',
     description: '中英日三语互译，理解行业术语和文化语境，不只是字面翻译。',
@@ -1574,7 +1586,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'ppt-designer-v1',
-    installCode: 'lobster://install/ppt-designer-v1',
+    installCode: 'bostonclaw://install/ppt-designer-v1',
     version: '1.0.0',
     name: 'PPT 设计师',
     description: '从大纲到文案到视觉建议，帮你把想法变成一份清晰的演示文稿。',
@@ -1612,7 +1624,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'data-analyst-v1',
-    installCode: 'lobster://install/data-analyst-v1',
+    installCode: 'bostonclaw://install/data-analyst-v1',
     version: '1.0.0',
     name: '数据分析师',
     description: '解读 Excel 数据、发现异常和趋势，把数字变成可执行的结论。',
@@ -1650,7 +1662,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'copywriter-v1',
-    installCode: 'lobster://install/copywriter-v1',
+    installCode: 'bostonclaw://install/copywriter-v1',
     version: '1.0.0',
     name: '文案高手',
     description: '各种风格的文案创作：从广告语到品牌故事，从幽默到走心。',
@@ -1688,7 +1700,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'english-tutor-v1',
-    installCode: 'lobster://install/english-tutor-v1',
+    installCode: 'bostonclaw://install/english-tutor-v1',
     version: '1.0.0',
     name: '英语陪练',
     description: '场景化英语对话练习，纠正语法错误，教地道的表达方式。',
@@ -1726,7 +1738,7 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
   },
   {
     id: 'researcher-v1',
-    installCode: 'lobster://install/researcher-v1',
+    installCode: 'bostonclaw://install/researcher-v1',
     version: '1.0.0',
     name: '深度调研员',
     description: '对任何课题进行系统性调研，输出结构化的研究报告。',
@@ -1763,6 +1775,11 @@ export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = [
     ],
   },
 ];
+
+export const LOBSTER_TEMPLATE_PACKAGES: LobsterTemplatePackage[] = RAW_TEMPLATE_PACKAGES.map((item) => ({
+  ...item,
+  installCode: makeInstallCode(item.id),
+}));
 
 export function resolveTemplatePackage(input: string): LobsterTemplatePackage | null {
   const normalized = parseInstallCode(input);

@@ -63,7 +63,7 @@ jobs:
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: lobster-setup-windows
+          name: bostonclaw-setup-windows
           # Upload the full release dir to avoid missing artifacts when electron-builder
           # changes output file naming or adds subfolders.
           path: apps/openclaw-installer/release/**
@@ -115,6 +115,6 @@ jobs:
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
-          name: lobster-setup-macos
+          name: bostonclaw-setup-macos
           path: apps/openclaw-installer/release/**
           if-no-files-found: error
