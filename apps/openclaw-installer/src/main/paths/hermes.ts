@@ -76,6 +76,12 @@ function diagnoseFailure(logText: string): string {
   if (t.includes('python') && (t.includes('not found') || t.includes('command not found'))) {
     return 'Hermes 需要 Python 环境。请先安装 Python 3.8+：https://www.python.org/downloads/';
   }
+  if (t.includes('wsl.exe [argument]') || t.includes('--install') || t.includes('--distribution')) {
+    return '检测到 WSL 仅安装了组件但没有可用 Linux 发行版。请先在 PowerShell 执行 `wsl --install -d Ubuntu`，重启后重试。';
+  }
+  if (t.includes('no installed distributions') || t.includes('wsl_e_default_distro_not_found')) {
+    return 'WSL 未安装 Linux 发行版。请先执行 `wsl --install -d Ubuntu`。';
+  }
 
   return '';
 }
@@ -91,7 +97,7 @@ export async function run(_plan: InstallPlan, onProgress: (p: InstallProgress) =
     const candidates = isWin
       ? [
           { command: 'bash', args: ['-lc', unixInstallCmd], hint: 'Git Bash' },
-          { command: 'wsl', args: ['bash', '-lc', unixInstallCmd], hint: 'WSL' },
+          { command: 'wsl.exe', args: ['--exec', 'bash', '-lc', unixInstallCmd], hint: 'WSL' },
         ]
       : [{ command: 'bash', args: ['-c', unixInstallCmd], hint: 'bash' }];
 
