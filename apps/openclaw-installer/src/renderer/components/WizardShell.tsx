@@ -12,6 +12,9 @@ interface WizardShellProps {
   currentStep: number;
   stepIcons: Record<number, typeof Sparkles>;
   onStepClick?: (stepId: number) => void;
+  onBack?: () => void;
+  backLabel?: string;
+  backDisabled?: boolean;
   sidebarSupplement?: ReactNode;
   headerKicker?: string;
   children: ReactNode;
@@ -22,6 +25,9 @@ export function WizardShell({
   currentStep,
   stepIcons,
   onStepClick,
+  onBack,
+  backLabel = '← 返回向导',
+  backDisabled = false,
   sidebarSupplement,
   headerKicker,
   children,
@@ -267,6 +273,28 @@ export function WizardShell({
           }}
         >
           <div style={{ minWidth: 0 }}>
+            {onBack ? (
+              <div style={{ marginBottom: 10 }}>
+                <button
+                  type="button"
+                  onClick={onBack}
+                  disabled={backDisabled}
+                  className="lobster-control"
+                  style={{
+                    padding: '8px 12px',
+                    border: '2px solid #2A241E',
+                    background: backDisabled ? '#EFE6DA' : '#FDFCF9',
+                    color: '#2A241E',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: backDisabled ? 'not-allowed' : 'pointer',
+                    opacity: backDisabled ? 0.55 : 1,
+                  }}
+                >
+                  {backLabel}
+                </button>
+              </div>
+            ) : null}
             {headerKicker ? (
               <div
                 style={{

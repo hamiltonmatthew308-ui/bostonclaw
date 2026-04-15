@@ -105,6 +105,26 @@ export function CompleteScreen() {
       <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
         <button
           type="button"
+          onClick={() => {
+            reset();
+            setStep('quiz');
+          }}
+          className="lobster-control"
+          style={{
+            padding: '12px 18px',
+            border: '2px solid #2A241E',
+            background: '#FDFCF9',
+            color: '#2A241E',
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: 'pointer',
+          }}
+        >
+          返回向导
+        </button>
+
+        <button
+          type="button"
           onClick={() => openExternal('https://lobster.community')}
           className="lobster-control"
           style={{
@@ -130,6 +150,7 @@ export function CompleteScreen() {
             runResult.success
               ? handlePrimaryAction
               : () => {
+                  // keep the primary button semantics for failure ("重试"), but don't trap the user.
                   reset();
                   setStep('quiz');
                 }

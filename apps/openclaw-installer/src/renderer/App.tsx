@@ -39,6 +39,7 @@ function App() {
   const envReport = useInstallerStore((s) => s.envReport);
   const setStep = useInstallerStore((s) => s.setStep);
   const setRunResult = useInstallerStore((s) => s.setRunResult);
+  const isExecuting = useInstallerStore((s) => s.isExecuting);
 
   useEffect(() => {
     if (currentStep === 'preflight' && selectedPath === 'freeclaw') {
@@ -125,6 +126,19 @@ function App() {
         stepIcons={STEP_ICONS}
         sidebarSupplement={sidebarSupplement}
         headerKicker="Lobster Installer"
+        onBack={
+          currentStep === 'quiz'
+            ? undefined
+            : () => {
+                if (currentStep === 'execute' && isExecuting) return;
+                if (currentStep === 'provider') return setStep('preflight');
+                if (currentStep === 'execute') return setStep('provider');
+                // preflight/complete -> back to start
+                return setStep('quiz');
+              }
+        }
+        backDisabled={currentStep === 'execute' && isExecuting}
+        backLabel={currentStep === 'complete' ? '← 返回起点' : '← 返回'}
       >
         {renderScreen()}
       </WizardShell>

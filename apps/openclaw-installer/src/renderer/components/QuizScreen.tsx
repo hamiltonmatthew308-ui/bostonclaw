@@ -56,6 +56,15 @@ export function QuizScreen() {
         nextUrl: 'https://github.com/NousResearch/hermes-agent#quick-install',
       });
       setStep('complete');
+    } else if (id === 'freeclaw') {
+      setRunResult({
+        success: true,
+        message:
+          'FreeClaw 路径属于“本地模型 + 本地 Agent”方案，通常需要安装 Ollama 并下载模型（耗时且对硬件有要求）。当前版本先提供 FreeClaw 安装指南。',
+        nextAction: 'show-guide',
+        nextUrl: 'https://github.com/wangdali-dev/FreeClaw',
+      });
+      setStep('complete');
     } else {
       setStep('preflight');
     }
