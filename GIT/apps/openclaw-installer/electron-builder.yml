@@ -1,0 +1,49 @@
+appId: com.lobster.dispatcher
+productName: Lobster
+copyright: Copyright © 2026 Lobster Community
+compression: maximum
+artifactName: Lobster-Setup-${version}-${os}-${arch}.${ext}
+
+directories:
+  output: release
+  buildResources: resources
+
+files:
+  - dist
+  - dist-electron
+  - package.json
+
+extraResources:
+  - from: resources/
+    to: resources/
+    filter:
+      - "icons/**/*"
+      - "tray-icons/**/*"
+      - "uv*"
+
+asar: true
+
+win:
+  target: nsis
+  # icon: resources/icon.ico  # TODO: add Windows icon before release
+  artifactName: "Lobster-Setup-${version}.${ext}"
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Lobster
+  uninstallDisplayName: Lobster
+
+mac:
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+  # icon: resources/icon.icns  # TODO: add macOS icon before release
+  category: public.app-category.productivity
+
+dmg:
+  size: 1g

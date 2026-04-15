@@ -1,0 +1,70 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+.pnpm-store
+
+# Build outputs
+dist
+dist-electron
+release
+build
+*.tsbuildinfo
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Testing
+coverage
+.nyc_output
+
+# Local tool caches / data
+.claude
+.claude-mem
+.superpowers
+.cursor
+.ai_completion
+.bash_sessions
+.bun
+.cache
+.bytertc
+.cagent
+.cc-switch
+.chelper
+.cherrystudio
+.codex
+.config
+.copilot
+.docker
+.dreamina_cli
+.gemini
+.goose
+.icube-remote-ssh
+.kimi
+.lark-cli
+.local
+.minimax-agent
+.mmx
+.npm

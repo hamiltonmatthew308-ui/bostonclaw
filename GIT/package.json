@@ -1,0 +1,17 @@
+{
+  "name": "lobster-community",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "dev:web": "pnpm --filter web dev",
+    "dev:server": "pnpm --filter server dev",
+    "dev:installer": "pnpm --filter lobster-installer dev",
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck",
+    "demo": "bash scripts/demo.sh"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}
