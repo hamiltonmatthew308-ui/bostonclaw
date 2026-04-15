@@ -10,6 +10,9 @@ import { registerIpcHandlers } from './ipc-handlers';
 // 保持全局引用防止垃圾回收
 let mainWindow: BrowserWindow | null = null;
 
+// Deep link 排队：如果窗口还没加载完，先存起来
+let pendingDeepLink: { path: string; auto: boolean } | null = null;
+
 /**
  * 获取应用图标路径
  */
@@ -21,6 +24,31 @@ function getAppIcon(): string | undefined {
   return process.platform === 'win32'
     ? join(iconsDir, 'icon.ico')
     : join(iconsDir, 'icon.png');
+}
+
+/**
+ * 处理 deep link URL：bostonclaw://install?path=hermes&auto=1
+ */
+function handleDeepLink(url: string): void {
+  try {
+    const parsed = new URL(url);
+    const path = parsed.searchParams.get('path');
+    const auto = parsed.searchParams.get('auto') === '1';
+
+    if (!path) return;
+
+    const payload = { path, auto };
+
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents.isLoading() === false) {
+      mainWindow.webContents.send('deep-link:trigger', payload);
+    } else {
+      pendingDeepLink = payload;
+    }
+
+    console.log(`[Bostonclaw] Deep link received: path=${path}, auto=${auto}`);
+  } catch (e) {
+    console.warn('[Bostonclaw] Failed to parse deep link URL:', url, e);
+  }
 }
 
 /**
@@ -55,6 +83,14 @@ function createWindow(): BrowserWindow {
       console.warn(`Blocked openExternal for malformed URL: ${url}`);
     }
     return { action: 'deny' };
+  });
+
+  // 页面加载完成后，发送排队的 deep link
+  win.webContents.on('did-finish-load', () => {
+    if (pendingDeepLink) {
+      win.webContents.send('deep-link:trigger', pendingDeepLink);
+      pendingDeepLink = null;
+    }
   });
 
   // 加载页面
@@ -99,15 +135,35 @@ if (process.defaultApp) {
   app.setAsDefaultProtocolClient('bostonclaw');
 }
 
-// 处理协议唤起
+// macOS: 处理协议唤起
 app.on('open-url', (_event, url) => {
-  console.log('[Bostonclaw Installer] Open URL:', url);
+  console.log('[Bostonclaw] Open URL:', url);
   if (!mainWindow) {
     mainWindow = createWindow();
   } else {
     mainWindow.focus();
   }
+  handleDeepLink(url);
 });
+
+// Windows: 处理第二个实例（协议唤起时 Windows 会启动新实例）
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  // 如果拿到的是协议 URL 而不是正常启动，交给已有实例处理
+  app.quit();
+} else {
+  app.on('second-instance', (_event, argv) => {
+    if (!mainWindow) {
+      mainWindow = createWindow();
+    } else {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+    // 在 argv 中找 bostonclaw:// URL
+    const url = argv.find((a) => a.startsWith('bostonclaw://'));
+    if (url) handleDeepLink(url);
+  });
+}
 
 // 应用生命周期
 app.whenReady().then(() => {

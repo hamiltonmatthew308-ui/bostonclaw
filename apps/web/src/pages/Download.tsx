@@ -4,19 +4,7 @@ import { VENDOR_REGISTRY } from '@lobster/shared'
 import { initSectionReveals } from '../animations'
 
 const GITHUB_RELEASES = 'https://github.com/hamiltonmatthew308-ui/bostonclaw/releases/latest'
-
-const OTHER_VERSIONS = [
-  {
-    name: 'FreeClaw',
-    description: '完全离线运行，不需要互联网。适合保密要求高的场景。仅 Windows。',
-    url: 'https://github.com/nicepkg/freeclaw',
-  },
-  {
-    name: 'Hermes Agent',
-    description: '开源免费，支持本地部署。需要 Python 环境。',
-    url: 'https://github.com/nicepkg/hermes-agent',
-  },
-]
+const HERMES_URL = 'https://hermes-agent.nousresearch.com/'
 
 export function Download() {
   useEffect(() => {
@@ -55,8 +43,75 @@ export function Download() {
           </div>
 
           <p style={{ marginTop: '24px', fontSize: '13px', color: 'var(--ink-muted)', fontFamily: "'IBM Plex Mono', monospace" }}>
-            下载遇到问题？试试上面的「大厂封装版」，直接用腾讯/字节/阿里等大厂的 AI 产品也行。
+            下载遇到问题？试试下面的「大厂封装版」，直接用腾讯/字节/阿里等大厂的 AI 产品也行。
           </p>
+        </div>
+      </section>
+
+      <section className="editorial-section">
+        <div className="content-frame">
+          <div className="section-heading">
+            <p className="section-kicker">来领取你的爱马仕</p>
+            <h2 className="section-title reveal-card"><span style={{ color: 'var(--copper)' }}>Hermes Agent</span> —<br/>会自我进化的 AI 同事</h2>
+            <p className="section-intro">
+              Hermes 不是普通的聊天机器人。它住在你的电脑里，记住你教它的东西，越用越聪明。
+            </p>
+          </div>
+
+          <div className="template-grid" style={{ gridTemplateColumns: '1fr' }}>
+            <article className="template-card reveal-card">
+              <div className="template-header">
+                <h3><span style={{ color: 'var(--copper)' }}>Hermes Agent</span></h3>
+                <span className="mono-caption">开源 · MIT 协议 · 免费</span>
+              </div>
+
+              <div style={{ display: 'grid', gap: '16px', fontSize: '14px', color: 'var(--ink-soft)', lineHeight: '1.8' }}>
+                <p>GitHub 40.4k Star，代号「爱马仕」。和龙虾（OpenClaw）不同，Hermes 主打「自进化」——不是每次都从零开始，而是用得越多越聪明。</p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                  <div style={{ padding: '16px', background: 'var(--paper-soft)', border: '1px solid var(--line)', borderRadius: '3px' }}>
+                    <p style={{ margin: '0 0 6px', color: 'var(--ink)', fontWeight: 600, fontSize: '13px' }}>自动学会新技能</p>
+                    <p style={{ margin: 0, fontSize: '13px' }}>帮你做完一个复杂任务后，会把整个流程沉淀成 Skill 文件。下次遇到类似任务直接复用，还会自动优化流程。</p>
+                  </div>
+                  <div style={{ padding: '16px', background: 'var(--paper-soft)', border: '1px solid var(--line)', borderRadius: '3px' }}>
+                    <p style={{ margin: '0 0 6px', color: 'var(--ink)', fontWeight: 600, fontSize: '13px' }}>记住你的习惯</p>
+                    <p style={{ margin: 0, fontSize: '13px' }}>三层记忆系统，所有对话都存着。你教过它的格式偏好、常用操作，它不会忘。</p>
+                  </div>
+                  <div style={{ padding: '16px', background: 'var(--paper-soft)', border: '1px solid var(--line)', borderRadius: '3px' }}>
+                    <p style={{ margin: '0 0 6px', color: 'var(--ink)', fontWeight: 600, fontSize: '13px' }}>到处都能用</p>
+                    <p style={{ margin: 0, fontSize: '13px' }}>飞书、Telegram、Discord、Slack、微信——你在哪它就在哪，一个 Agent 多端操控。</p>
+                  </div>
+                  <div style={{ padding: '16px', background: 'var(--paper-soft)', border: '1px solid var(--line)', borderRadius: '3px' }}>
+                    <p style={{ margin: '0 0 6px', color: 'var(--ink)', fontWeight: 600, fontSize: '13px' }}>自动干活</p>
+                    <p style={{ margin: 0, fontSize: '13px' }}>「每天早上 9 点提醒我看邮件」「每周五提醒我写周报」——自然语言设定时任务，不用写 cron。</p>
+                  </div>
+                  <div style={{ padding: '16px', background: 'var(--paper-soft)', border: '1px solid var(--line)', borderRadius: '3px' }}>
+                    <p style={{ margin: '0 0 6px', color: 'var(--ink)', fontWeight: 600, fontSize: '13px' }}>200+ 大模型</p>
+                    <p style={{ margin: 0, fontSize: '13px' }}>无缝对接 OpenAI、Anthropic、智谱 GLM、DeepSeek 等主流模型。而且能用 Claude 的额度。</p>
+                  </div>
+                  <div style={{ padding: '16px', background: 'var(--paper-soft)', border: '1px solid var(--line)', borderRadius: '3px' }}>
+                    <p style={{ margin: '0 0 6px', color: 'var(--ink)', fontWeight: 600, fontSize: '13px' }}>安全隔离</p>
+                    <p style={{ margin: 0, fontSize: '13px' }}>框架层面做了用户授权、危险命令审批、容器隔离。就算用一般模型也够安全。</p>
+                  </div>
+                </div>
+
+                <p>安装很简单，一行命令搞定：<code style={{ background: 'var(--copper-light)', padding: '2px 8px', borderRadius: '2px', fontSize: '12px', fontFamily: "'IBM Plex Mono', monospace" }}>curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash</code></p>
+              </div>
+
+              <div className="template-footer" style={{ marginTop: '20px' }}>
+                <span className="template-badge">开源免费</span>
+                <a
+                  href={HERMES_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="primary-link"
+                  style={{ padding: '6px 16px', fontSize: '11px' }}
+                >
+                  去领取 →
+                </a>
+              </div>
+            </article>
+          </div>
         </div>
       </section>
 
@@ -90,29 +145,6 @@ export function Download() {
                     style={{ padding: '4px 12px', fontSize: '11px' }}
                   >
                     访问官网
-                  </a>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="editorial-section">
-        <div className="content-frame">
-          <div className="section-heading">
-            <p className="section-kicker">其他选项</p>
-            <h2 className="section-title reveal-card">离线版 · 开源版</h2>
-          </div>
-
-          <div className="step-manual">
-            {OTHER_VERSIONS.map((ov) => (
-              <article key={ov.name} className="manual-card reveal-card">
-                <h3>{ov.name}</h3>
-                <p>{ov.description}</p>
-                <div className="template-footer" style={{ marginTop: '16px' }}>
-                  <a href={ov.url} className="secondary-link" style={{ padding: '4px 12px', fontSize: '11px' }}>
-                    {ov.name === 'FreeClaw' ? '了解 FreeClaw' : '查看 GitHub'}
                   </a>
                 </div>
               </article>

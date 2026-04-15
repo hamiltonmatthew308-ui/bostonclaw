@@ -1,6 +1,6 @@
 {
   "name": "lobster-installer",
-  "version": "0.1.0",
+  "version": "0.7.0",
   "description": "Bostonclaw 安装器 - 企业 AI Agent Runtime 的一键接入向导",
   "main": "dist-electron/main/index.js",
   "repository": {

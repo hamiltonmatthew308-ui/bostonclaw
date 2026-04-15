@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Sparkles, Cpu, KeyRound, Rocket, CheckCircle2 } from 'lucide-react';
 import { useInstallerStore, type WizardStep } from './store';
 import { WizardShell } from './components/WizardShell';
@@ -38,6 +39,27 @@ function App() {
   const envReport = useInstallerStore((s) => s.envReport);
   const setStep = useInstallerStore((s) => s.setStep);
   const isExecuting = useInstallerStore((s) => s.isExecuting);
+  const beginPath = useInstallerStore((s) => s.beginPath);
+  const setAutoStart = useInstallerStore((s) => s.setAutoStart);
+
+  // Deep link 监听：网页一键唤起时自动选择路径
+  useEffect(() => {
+    const validPaths = ['openclaw', 'freeclaw', 'hermes'];
+    const unsubscribe = window.electron.ipcRenderer.on('deep-link:trigger', (data: unknown) => {
+      const { path, auto } = data as { path: string; auto: boolean };
+      if (!validPaths.includes(path)) return;
+      if (isExecuting) return; // 安装进行中，不干扰
+
+      beginPath(path as any);
+      if (auto) setAutoStart(true);
+      setStep('preflight');
+    });
+
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+      else window.electron.ipcRenderer.off('deep-link:trigger');
+    };
+  }, [beginPath, setStep, setAutoStart, isExecuting]);
 
 
   const sidebarSupplement = (

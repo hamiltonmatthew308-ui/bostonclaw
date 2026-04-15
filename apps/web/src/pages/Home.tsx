@@ -1,14 +1,10 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { initHeroEntrance, initSectionReveals } from '../animations'
-import { useHubData } from '../hooks/useHubData'
 import { HeroSection } from '../components/HeroSection'
 import { GettingStartedSection } from '../components/GettingStartedSection'
-import { TemplateLibrarySection } from '../components/TemplateLibrarySection'
 
 export function Home() {
-  const hub = useHubData()
-
   useEffect(() => {
     const timer = window.setTimeout(() => {
       initHeroEntrance()
@@ -27,14 +23,6 @@ export function Home() {
       <div className="paper-noise" />
       <HeroSection />
       <GettingStartedSection />
-      <TemplateLibrarySection
-        copiedInstallCode={hub.copiedInstallCode}
-        activeCategory={hub.activeCategory}
-        categories={hub.categories}
-        filteredTemplates={hub.filteredTemplates}
-        onCategoryChange={hub.setActiveCategory}
-        onCopyInstallCode={hub.copyInstallCode}
-      />
     </div>
   )
 }

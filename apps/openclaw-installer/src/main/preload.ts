@@ -21,6 +21,7 @@ const VALID_INVOKE_CHANNELS = [
 
 const VALID_ON_CHANNELS = [
   'installer:progress',
+  'deep-link:trigger',
 ];
 
 // 暴露给渲染进程的 API

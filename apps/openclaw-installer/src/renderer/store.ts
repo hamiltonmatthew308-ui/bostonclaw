@@ -21,6 +21,7 @@ interface InstallerStore {
   runResult: RunResult | null;
   isExecuting: boolean;
   winExperimentalNative: boolean;
+  autoStart: boolean;
 
   setStep: (step: WizardStep) => void;
   nextStep: () => void;
@@ -34,6 +35,7 @@ interface InstallerStore {
   setRunResult: (result: RunResult | null) => void;
   setExecuting: (executing: boolean) => void;
   setWinExperimentalNative: (v: boolean) => void;
+  setAutoStart: (v: boolean) => void;
   reset: () => void;
 }
 
@@ -50,6 +52,7 @@ const initialState = {
   runResult: null as RunResult | null,
   isExecuting: false,
   winExperimentalNative: false,
+  autoStart: false,
 };
 
 export const useInstallerStore = create<InstallerStore>((set) => ({
@@ -69,7 +72,9 @@ export const useInstallerStore = create<InstallerStore>((set) => ({
     set({
       ...initialState,
       selectedPath: path,
+      autoStart: false,
     }),
+  setAutoStart: (v: boolean) => set({ autoStart: v }),
   setVendorId: (id) => set({ vendorId: id }),
   setEnvReport: (report) => set({ envReport: report }),
   setPlan: (plan) => set({ plan }),

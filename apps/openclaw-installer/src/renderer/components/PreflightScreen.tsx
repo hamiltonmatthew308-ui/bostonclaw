@@ -27,6 +27,8 @@ export function PreflightScreen() {
   const planWarnings = planObj?.warnings ?? [];
   const winExperimentalNative = useInstallerStore((s) => s.winExperimentalNative);
   const setWinExperimentalNative = useInstallerStore((s) => s.setWinExperimentalNative);
+  const autoStart = useInstallerStore((s) => s.autoStart);
+  const setAutoStart = useInstallerStore((s) => s.setAutoStart);
   const { checkEnv, plan } = useInstaller();
   const [loading, setLoading] = useState(false);
 
@@ -49,6 +51,14 @@ export function PreflightScreen() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [envReport, selectedPath]);
+
+  // Deep link autoStart: 环境检测完成后自动跳到执行页
+  useEffect(() => {
+    if (autoStart && envReport && planObj && !loading) {
+      setAutoStart(false);
+      setStep(selectedPath === 'openclaw' ? 'provider' : 'execute');
+    }
+  }, [autoStart, envReport, planObj, loading, selectedPath, setStep, setAutoStart]);
 
   const items = [
     {
