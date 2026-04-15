@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import type { EnvReport, InstallPlan, InstallProgress, RunResult } from '../../shared/types/installer';
 import { detectEnvironment } from '../env/detector';
+import { runShellStream } from '../utils/shell-stream';
 
 const HERMES_INSTALL_SH = 'https://hermes-agent.nousresearch.com/install.sh';
 const HERMES_INSTALL_PS1 = 'https://raw.githubusercontent.com/NousResearch/hermes-agent/main/install.ps1';
@@ -84,42 +85,26 @@ export async function run(_plan: InstallPlan, onProgress: (p: InstallProgress) =
   return new Promise((resolve) => {
     const isWin = process.platform === 'win32';
     const logLines: string[] = [];
-    let percent = 8;
-    let lastOutputAt = Date.now();
 
-    onProgress({ step: '启动安装脚本', percent, log: '运行 Hermes Agent 一键安装...' });
+    onProgress({ step: '启动安装脚本', percent: 8, log: '运行 Hermes Agent 一键安装...' });
 
     // Windows: 加 -ExecutionPolicy Bypass -NoProfile 提高企业环境兼容性
     const [cmd, args] = isWin
       ? ['powershell', ['-ExecutionPolicy', 'Bypass', '-NoProfile', '-Command', `irm ${HERMES_INSTALL_PS1} | iex`]]
       : ['bash', ['-c', `curl -fsSL ${HERMES_INSTALL_SH} | bash`]];
 
-    const child = spawn(cmd, args, { shell: false });
-
-    const handleLine = (data: Buffer) => {
-      const line = data.toString().trim();
-      if (line) {
-        logLines.push(line);
-        lastOutputAt = Date.now();
-        percent = Math.min(92, percent + 1);
-        onProgress({ step: '安装中...', percent, log: line });
-      }
-    };
-
-    child.stdout?.on('data', handleLine);
-    child.stderr?.on('data', handleLine);
-
-    const heartbeat = setInterval(() => {
-      const now = Date.now();
-      if (now - lastOutputAt > 2500) {
-        percent = Math.min(90, percent + 1);
-        onProgress({ step: '安装中...', percent, log: '...仍在运行，等待脚本输出...' });
-        lastOutputAt = now;
-      }
-    }, 1200);
-
-    child.on('close', (code) => {
-      clearInterval(heartbeat);
+    void runShellStream({
+      command: cmd,
+      args,
+      step: '安装中...',
+      startPercent: 10,
+      endPercent: 92,
+      onProgress: (p) => {
+        const line = p.log.trim();
+        if (line) logLines.push(line);
+        onProgress(p);
+      },
+    }).then(({ code }) => {
 
       if (code !== 0) {
         const logText = logLines.join('\n');
@@ -161,10 +146,7 @@ export async function run(_plan: InstallPlan, onProgress: (p: InstallProgress) =
           });
         }
       });
-    });
-
-    child.on('error', (err) => {
-      clearInterval(heartbeat);
+    }).catch((err) => {
       resolve({
         success: false,
         message: `无法启动安装脚本: ${err.message}`,

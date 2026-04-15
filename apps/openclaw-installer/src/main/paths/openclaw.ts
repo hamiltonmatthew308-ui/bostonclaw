@@ -8,6 +8,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { get } from 'node:https';
+import { runShellStream } from '../utils/shell-stream';
 
 const execFileAsync = promisify(execFile);
 
@@ -189,15 +190,25 @@ async function installOpenClaw(
     : join(nodePath, '..', '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js');
   await mkdir(npmPrefix, { recursive: true });
 
-  onProgress({ step: '安装 OpenClaw', percent: 40, log: `npm install -g openclaw@latest --prefix=${npmPrefix}` });
-
-  await execFileAsync(nodePath, [
+  const installArgs = [
     npmCli,
     'install',
     '-g',
     'openclaw@latest',
     `--prefix=${npmPrefix}`,
-  ], { timeout: 300000 });
+  ];
+  onProgress({ step: '安装 OpenClaw', percent: 40, log: `准备执行 npm 安装` });
+  const result = await runShellStream({
+    command: nodePath,
+    args: installArgs,
+    step: '安装 OpenClaw',
+    startPercent: 42,
+    endPercent: 58,
+    onProgress,
+  });
+  if (result.code !== 0) {
+    throw new Error(`OpenClaw 安装失败，退出码 ${result.code}`);
+  }
 
   const openclawCmd = await findOpenClawCmd(npmPrefix);
 

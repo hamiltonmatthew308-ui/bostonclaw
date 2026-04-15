@@ -26,7 +26,6 @@ export function ProgressScreen() {
   }, [progress?.log]);
 
   useEffect(() => {
-    let cancelled = false;
     if (!selectedPath || !plan) return;
     if (isExecuting || runResult) return;
 
@@ -35,15 +34,13 @@ export function ProgressScreen() {
     setProgress({ step: '开始执行', percent: 0, log: '启动安装流程...' });
 
     run(selectedPath, plan, (p) => {
-      if (!cancelled) setProgress(p);
+      setProgress(p);
     })
       .then((result) => {
-        if (cancelled) return;
         setRunResult(result);
         setStep('complete');
       })
       .catch((err) => {
-        if (cancelled) return;
         setRunResult({
           success: false,
           message: err instanceof Error ? err.message : String(err),
@@ -52,12 +49,8 @@ export function ProgressScreen() {
         setStep('complete');
       })
       .finally(() => {
-        if (!cancelled) setExecuting(false);
+        setExecuting(false);
       });
-
-    return () => {
-      cancelled = true;
-    };
   }, [
     selectedPath,
     plan,

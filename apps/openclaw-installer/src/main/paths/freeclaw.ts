@@ -187,11 +187,14 @@ export async function run(_plan: InstallPlan, onProgress: (p: InstallProgress) =
     }
 
     onProgress({ step: '启动 FreeClaw', percent: 40, log: `正在启动: ${targetExe}` });
+    onProgress({ step: '启动 FreeClaw', percent: 42, log: `$ start "" "${targetExe}"` });
     const opened = await shell.openPath(targetExe);
     if (opened && opened !== '') {
       pushLog(`启动反馈: ${opened}`);
+      onProgress({ step: '启动 FreeClaw', percent: 55, log: `[shell] process exited with error: ${opened}` });
     } else {
       pushLog('启动成功');
+      onProgress({ step: '启动 FreeClaw', percent: 55, log: '[shell] process exited with code 0' });
     }
 
     onProgress({ step: '完成', percent: 100, log: 'FreeClaw 已启动，请在其窗口中完成后续安装。' });
