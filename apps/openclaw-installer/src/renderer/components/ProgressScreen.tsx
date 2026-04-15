@@ -84,6 +84,33 @@ export function ProgressScreen() {
     }
   };
 
+  if (!selectedPath || !plan) {
+    return (
+      <div style={{ display: 'grid', gap: 14 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: '#1B1712' }}>缺少安装计划</div>
+        <div style={{ fontSize: 13, color: '#6F655B', lineHeight: 1.7 }}>
+          可能是环境检测尚未完成或计划生成失败。请返回上一页点击“重新检测”。
+        </div>
+        <button
+          type="button"
+          onClick={() => setStep('preflight')}
+          className="lobster-control"
+          style={{
+            width: 180,
+            padding: '12px 16px',
+            border: '2px solid #2A241E',
+            background: '#FDFCF9',
+            fontSize: 13,
+            fontWeight: 800,
+            cursor: 'pointer',
+          }}
+        >
+          返回环境检测
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'grid', gap: 20, height: '100%' }}>
       <div>

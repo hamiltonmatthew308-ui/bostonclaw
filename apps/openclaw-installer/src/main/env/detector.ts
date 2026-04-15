@@ -67,10 +67,31 @@ async function diskFreeGB(): Promise<number> {
 async function detectWSL2(): Promise<boolean | undefined> {
   if (process.platform !== 'win32') return undefined;
   try {
-    const { stdout } = await execFileAsync('wsl.exe', ['-l', '-v'], { windowsHide: true });
-    return /\s2\s*$/.test(stdout) || stdout.includes(' 2 ');
-  } catch {
+    // Prefer a structured parse of `wsl.exe -l -v` output.
+    // Typical output:
+    //   NAME      STATE           VERSION
+    // * Ubuntu    Running         2
+    const { stdout } = await execFileAsync('wsl.exe', ['-l', '-v'], { windowsHide: true, timeout: 8000 });
+    const lines = String(stdout)
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    for (const line of lines) {
+      if (/^NAME\s+/i.test(line)) continue;
+      const cleaned = line.replace(/^\*\s*/, '').trim();
+      const parts = cleaned.split(/\s+/);
+      const maybeVersion = parts[parts.length - 1];
+      if (maybeVersion === '2') return true;
+    }
     return false;
+  } catch {
+    // Fallback: `wsl.exe --status` exists on newer Windows and returns "Default Version: 2".
+    try {
+      const { stdout } = await execFileAsync('wsl.exe', ['--status'], { windowsHide: true, timeout: 8000 });
+      return /Default Version:\s*2/i.test(String(stdout));
+    } catch {
+      return false;
+    }
   }
 }
 
@@ -99,4 +120,3 @@ export async function detectEnvironment(): Promise<EnvReport> {
     wsl2,
   };
 }
-
