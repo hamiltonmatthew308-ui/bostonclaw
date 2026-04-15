@@ -32,7 +32,9 @@ export default defineConfig({
             },
           },
           build: {
-            outDir: 'dist-electron/main',
+            // Important: use an absolute path so CI (Windows) doesn't emit into src/renderer/dist-electron/*
+            // which causes electron-builder to miss the entry file in app.asar.
+            outDir: resolve(__dirname, 'dist-electron/main'),
             rollupOptions: {
               external: isMainProcessExternal,
             },
@@ -54,7 +56,8 @@ export default defineConfig({
             },
           },
           build: {
-            outDir: 'dist-electron/preload',
+            // Same as main outDir: must be absolute for cross-platform packaging correctness.
+            outDir: resolve(__dirname, 'dist-electron/preload'),
             rollupOptions: {
               external: ['electron'],
             },

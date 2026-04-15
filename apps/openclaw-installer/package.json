@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "description": "Lobster 安装桥 - 企业 AI Agent Runtime 与模板的一键接入向导",
   "main": "dist-electron/main/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hamiltonmatthew308-ui/bostonclaw.git"
+  },
   "author": "Lobster",
   "license": "MIT",
   "private": true,
