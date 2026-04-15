@@ -5,21 +5,15 @@ import { initSectionReveals } from '../animations'
 
 const GITHUB_RELEASES = 'https://github.com/hamiltonmatthew308-ui/bostonclaw/releases/latest'
 
-const LOBSTER_DOWNLOADS = [
-  { platform: 'Windows', arch: 'x64', format: 'exe', size: '~70 MB', note: 'NSIS 安装包，无需管理员权限' },
-  { platform: 'macOS', arch: 'x64', format: 'dmg', size: '~65 MB', note: 'Intel Mac' },
-  { platform: 'macOS', arch: 'arm64', format: 'dmg', size: '~65 MB', note: 'Apple Silicon' },
-]
-
 const OTHER_VERSIONS = [
   {
     name: 'FreeClaw',
-    description: '完全离线运行，不需要互联网连接。内置 Ollama，支持本地大模型。仅支持 Windows。',
+    description: '完全离线运行，不需要互联网。适合保密要求高的场景。仅 Windows。',
     url: 'https://github.com/nicepkg/freeclaw',
   },
   {
     name: 'Hermes Agent',
-    description: '开源免费模型，支持本地部署。需要 Python 环境。',
+    description: '开源免费，支持本地部署。需要 Python 环境。',
     url: 'https://github.com/nicepkg/hermes-agent',
   },
 ]
@@ -33,24 +27,25 @@ export function Download() {
     <div className="page-shell">
       <div className="paper-noise" />
       <Link to="/" className="back-link">← 返回首页</Link>
+
       <section className="editorial-section">
         <div className="content-frame">
           <div className="editorial-rail reveal-card">
-            <span className="rail-label">Download</span>
+            <span className="rail-label">下载</span>
           </div>
 
           <h1 className="section-title reveal-card">
-            下载 Lobster 安装器
+            下载安装器
           </h1>
           <p className="section-intro reveal-card">
-            Windows 用户推荐下载 .exe，macOS 用户下载 .dmg。
+            选你的系统，点一下就行。不需要管理员权限，装完打开就能用。
           </p>
 
           <div className="hero-metrics" style={{ marginTop: '48px' }}>
             <a href={GITHUB_RELEASES} className="metric-card reveal-card" style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer', display: 'block' }}>
               <p className="metric-label">Windows</p>
               <p className="metric-value" style={{ fontSize: 'clamp(2rem, 4vw, 3rem)' }}>.exe</p>
-              <p className="metric-caption">~70 MB · 推荐</p>
+              <p className="metric-caption">~70 MB · 双击安装</p>
             </a>
             <a href={GITHUB_RELEASES} className="metric-card reveal-card" style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer', display: 'block' }}>
               <p className="metric-label">macOS</p>
@@ -59,36 +54,18 @@ export function Download() {
             </a>
           </div>
 
-          <div className="section-heading" style={{ marginTop: '72px' }}>
-            <p className="section-kicker">完整版本列表</p>
-          </div>
-
-          <div className="editorial-rail reveal-card" style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--ink-soft)' }}>
-            <span>平台</span>
-            <span>架构</span>
-            <span>格式</span>
-            <span>大小</span>
-            <span>说明</span>
-            <span>下载</span>
-          </div>
-          {LOBSTER_DOWNLOADS.map((d) => (
-            <div key={`${d.platform}-${d.arch}`} className="editorial-rail reveal-card" style={{ alignItems: 'center' }}>
-              <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '13px' }}>{d.platform}</span>
-              <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '13px' }}>{d.arch}</span>
-              <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '13px' }}>{d.format}</span>
-              <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '13px' }}>{d.size}</span>
-              <span style={{ fontSize: '13px', color: 'var(--ink-soft)' }}>{d.note}</span>
-              <a href={GITHUB_RELEASES} className="secondary-link" style={{ padding: '4px 12px', fontSize: '11px' }}>下载</a>
-            </div>
-          ))}
+          <p style={{ marginTop: '24px', fontSize: '13px', color: 'var(--ink-muted)', fontFamily: "'IBM Plex Mono', monospace" }}>
+            下载遇到问题？试试上面的「大厂封装版」，直接用腾讯/字节/阿里等大厂的 AI 产品也行。
+          </p>
         </div>
       </section>
 
       <section className="editorial-section" style={{ background: 'var(--paper-soft)' }}>
         <div className="content-frame">
           <div className="section-heading">
-            <p className="section-kicker">大厂封装版</p>
-            <h2 className="section-title reveal-card">如果你已经在用某个大厂 AI 产品</h2>
+            <p className="section-kicker">大厂 AI 产品</p>
+            <h2 className="section-title reveal-card">不想装？直接用大厂的也行</h2>
+            <p className="section-intro">如果你公司已经在用下面这些产品，直接访问他们的官网就行。</p>
           </div>
 
           <div className="template-grid">
@@ -124,8 +101,8 @@ export function Download() {
       <section className="editorial-section">
         <div className="content-frame">
           <div className="section-heading">
-            <p className="section-kicker">其他版本</p>
-            <h2 className="section-title reveal-card">FreeClaw · Hermes Agent</h2>
+            <p className="section-kicker">其他选项</p>
+            <h2 className="section-title reveal-card">离线版 · 开源版</h2>
           </div>
 
           <div className="step-manual">
@@ -135,7 +112,7 @@ export function Download() {
                 <p>{ov.description}</p>
                 <div className="template-footer" style={{ marginTop: '16px' }}>
                   <a href={ov.url} className="secondary-link" style={{ padding: '4px 12px', fontSize: '11px' }}>
-                    {ov.name === 'FreeClaw' ? '下载 FreeClaw' : '查看 GitHub'}
+                    {ov.name === 'FreeClaw' ? '了解 FreeClaw' : '查看 GitHub'}
                   </a>
                 </div>
               </article>

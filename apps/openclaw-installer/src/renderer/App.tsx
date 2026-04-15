@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { Sparkles, Cpu, KeyRound, Rocket, CheckCircle2 } from 'lucide-react';
 import { useInstallerStore, type WizardStep } from './store';
 import { WizardShell } from './components/WizardShell';
@@ -38,22 +37,8 @@ function App() {
   const selectedPath = useInstallerStore((s) => s.selectedPath);
   const envReport = useInstallerStore((s) => s.envReport);
   const setStep = useInstallerStore((s) => s.setStep);
-  const setRunResult = useInstallerStore((s) => s.setRunResult);
   const isExecuting = useInstallerStore((s) => s.isExecuting);
 
-  useEffect(() => {
-    if (currentStep === 'preflight' && selectedPath === 'freeclaw') {
-      const isWin = window.electron.platform === 'win32';
-      if (!isWin) {
-        setRunResult({
-          success: false,
-          message: 'FreeClaw 目前仅支持 Windows 平台。',
-          nextAction: 'none',
-        });
-        setStep('complete');
-      }
-    }
-  }, [currentStep, selectedPath, setRunResult, setStep]);
 
   const sidebarSupplement = (
     <div style={{ display: 'grid', gap: 12, paddingBottom: 14 }}>
@@ -125,14 +110,17 @@ function App() {
         currentStep={STEP_MAP[currentStep]}
         stepIcons={STEP_ICONS}
         sidebarSupplement={sidebarSupplement}
-        headerKicker="Lobster Installer"
+        headerKicker="BostonClaw Installer"
         onBack={
           currentStep === 'quiz'
             ? undefined
             : () => {
                 if (currentStep === 'execute' && isExecuting) return;
                 if (currentStep === 'provider') return setStep('preflight');
-                if (currentStep === 'execute') return setStep('provider');
+                if (currentStep === 'execute') {
+                  // openclaw 经过 provider；freeclaw/hermes 跳过 provider
+                  return setStep(selectedPath === 'openclaw' ? 'provider' : 'preflight');
+                }
                 // preflight/complete -> back to start
                 return setStep('quiz');
               }

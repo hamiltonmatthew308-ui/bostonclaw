@@ -1,10 +1,10 @@
 import { useEffect } from 'react'
-import { initHeroEntrance, initParallax, initSectionReveals } from '../animations'
+import { Link } from 'react-router-dom'
+import { initHeroEntrance, initSectionReveals } from '../animations'
 import { useHubData } from '../hooks/useHubData'
 import { HeroSection } from '../components/HeroSection'
 import { GettingStartedSection } from '../components/GettingStartedSection'
 import { TemplateLibrarySection } from '../components/TemplateLibrarySection'
-import { CommunityRadarSection } from '../components/CommunityRadarSection'
 
 export function Home() {
   const hub = useHubData()
@@ -12,7 +12,6 @@ export function Home() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       initHeroEntrance()
-      initParallax()
       initSectionReveals()
     }, 100)
 
@@ -21,8 +20,12 @@ export function Home() {
 
   return (
     <div className="page-shell">
+      <Link to="/" className="site-logo">
+        <span className="logo-name">Bostonclaw</span>
+        <span className="logo-sub">Boston Aesthetics</span>
+      </Link>
       <div className="paper-noise" />
-      <HeroSection healthy={hub.healthy} onlineAgents={hub.radarMetrics.onlineAgents} recentEvents={hub.radarMetrics.recentEvents} />
+      <HeroSection />
       <GettingStartedSection />
       <TemplateLibrarySection
         copiedInstallCode={hub.copiedInstallCode}
@@ -31,14 +34,6 @@ export function Home() {
         filteredTemplates={hub.filteredTemplates}
         onCategoryChange={hub.setActiveCategory}
         onCopyInstallCode={hub.copyInstallCode}
-      />
-      <CommunityRadarSection
-        healthy={hub.healthy}
-        agents={hub.agents}
-        departmentStats={hub.departmentStats}
-        feed={hub.feed}
-        agentsById={hub.agentsById}
-        radarMetrics={hub.radarMetrics}
       />
     </div>
   )

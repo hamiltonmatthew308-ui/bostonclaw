@@ -210,8 +210,8 @@ export function PreflightScreen() {
 
       <StepActions
         onPrev={() => setStep('quiz')}
-        onNext={() => setStep('provider')}
-        nextLabel="开始安装"
+        onNext={() => setStep(selectedPath === 'openclaw' ? 'provider' : 'execute')}
+        nextLabel={selectedPath === 'openclaw' ? '下一步：配置 API' : '开始安装'}
         nextDisabled={loading || !envReport}
       />
     </div>

@@ -8,7 +8,7 @@ export function useHubData() {
   const [agents, setAgents] = useState<Agent[]>([])
   const [feed, setFeed] = useState<FeedItem[]>([])
   const [healthy, setHealthy] = useState(false)
-  const [activeCategory, setActiveCategory] = useState('全部')
+  const [activeCategory, setActiveCategory] = useState('')
   const [copiedInstallCode, setCopiedInstallCode] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
@@ -43,12 +43,12 @@ export function useHubData() {
   }, [refresh])
 
   const categories = useMemo(
-    () => ['全部', ...Array.from(new Set(LOBSTER_TEMPLATE_PACKAGES.map((item) => item.categoryLabel)))],
+    () => Array.from(new Set(LOBSTER_TEMPLATE_PACKAGES.map((item) => item.categoryLabel))),
     [],
   )
 
   const filteredTemplates = useMemo(() => {
-    if (activeCategory === '全部') return LOBSTER_TEMPLATE_PACKAGES
+    if (!activeCategory) return LOBSTER_TEMPLATE_PACKAGES.slice(0, 8)
     return LOBSTER_TEMPLATE_PACKAGES.filter((item) => item.categoryLabel === activeCategory)
   }, [activeCategory])
 

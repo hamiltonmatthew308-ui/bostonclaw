@@ -125,7 +125,7 @@ export function CompleteScreen() {
 
         <button
           type="button"
-          onClick={() => openExternal('https://lobster.community')}
+          onClick={() => openExternal('https://bostonclaw.community')}
           className="lobster-control"
           style={{
             padding: '12px 20px',

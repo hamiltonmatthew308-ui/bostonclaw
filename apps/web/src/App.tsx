@@ -3,7 +3,7 @@ import './App.css'
 import { SiteNav } from './components/SiteNav'
 import { Home } from './pages/Home'
 import { Templates } from './pages/Templates'
-import { Report } from './pages/Report'
+import { Community } from './pages/Community'
 import { Download } from './pages/Download'
 
 function App() {
@@ -13,7 +13,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/templates" element={<Templates />} />
-        <Route path="/report" element={<Report />} />
+        <Route path="/community" element={<Community />} />
         <Route path="/download" element={<Download />} />
       </Routes>
     </BrowserRouter>

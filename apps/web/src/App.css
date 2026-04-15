@@ -1,5 +1,5 @@
 /*
- * Lobster Community — Refined Editorial
+ * Bostonclaw — Refined Editorial
  * Warm, typographic design system for enterprise AI adoption.
  */
 
@@ -35,6 +35,41 @@ section {
   max-width: 1200px;
   margin: 0 auto;
   z-index: 2;
+}
+
+/* ── Site Logo ──────────────────────────────────────────── */
+
+.site-logo {
+  position: fixed;
+  top: 20px;
+  left: 28px;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-decoration: none;
+}
+
+.site-logo:hover .logo-name {
+  opacity: 0.8;
+}
+
+.logo-name {
+  font-family: 'DM Serif Display', serif;
+  font-size: 24px;
+  font-weight: 400;
+  color: var(--copper);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  transition: opacity 0.2s ease;
+}
+
+.logo-sub {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  color: var(--ink-muted);
+  letter-spacing: 0.02em;
+  line-height: 1.3;
 }
 
 /* ── Navigation ────────────────────────────────────────── */
@@ -119,6 +154,32 @@ section {
     radial-gradient(ellipse 50% 60% at 80% 70%, rgba(160, 130, 90, 0.05), transparent);
 }
 
+.hero-full {
+  justify-content: center;
+  text-align: center;
+}
+
+.hero-full .content-frame {
+  display: grid;
+  gap: 24px;
+  justify-items: center;
+}
+
+.hero-title-center {
+  text-align: center;
+  max-width: 900px;
+}
+
+.hero-subtitle-center {
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.hero-actions-center {
+  justify-content: center;
+}
+
 .hero-orb {
   display: none;
 }
@@ -127,7 +188,7 @@ section {
   display: grid;
   grid-template-columns: 1.3fr 0.9fr;
   gap: 40px;
-  align-items: end;
+  align-items: start;
 }
 
 .hero-copy,
@@ -233,6 +294,7 @@ section {
 }
 
 .primary-link:hover {
+  background: #b33a1f;
   box-shadow: 0 4px 12px rgba(201, 69, 40, 0.3);
   transform: translateY(-1px);
 }
@@ -257,6 +319,34 @@ section {
 .hero-side {
   display: grid;
   gap: 16px;
+  align-content: start;
+}
+
+.hero-brand-card {
+  padding: 48px 36px;
+  border: 1px solid var(--line);
+  background: var(--paper-strong);
+  border-radius: 3px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.03),
+    0 4px 16px rgba(0, 0, 0, 0.02);
+}
+
+.hero-brand-name {
+  margin: 0 0 16px;
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(2.4rem, 4vw, 3.6rem);
+  color: var(--copper);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.hero-brand-sub {
+  margin: 0;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.6;
 }
 
 .status-note,

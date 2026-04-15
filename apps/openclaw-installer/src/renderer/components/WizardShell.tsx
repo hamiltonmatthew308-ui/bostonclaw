@@ -92,7 +92,7 @@ export function WizardShell({
                 letterSpacing: '-0.01em',
               }}
             >
-              LOBSTER
+              BOSTONCLAW
             </h1>
             <p
               style={{
@@ -104,7 +104,7 @@ export function WizardShell({
                 textTransform: 'uppercase',
               }}
             >
-              安装桥 / 模板中心
+              安装桥
             </p>
           </div>
         </div>
@@ -121,7 +121,7 @@ export function WizardShell({
               marginBottom: 10,
             }}
           >
-            Install Concierge
+            一键极简安装
           </div>
           <div
             style={{
@@ -132,12 +132,12 @@ export function WizardShell({
               lineHeight: 1.35,
             }}
           >
-            帮你做复杂判断，
+            选你要的方式，
             <br />
-            帮你把安装落下来。
+            装好就能用。
           </div>
           <div style={{ color: '#6F655B', fontSize: 12, lineHeight: 1.75, marginTop: 8 }}>
-            先理解使用场景，再推荐模板、接入方式和落地路径。
+            原版 / 纯本地 / Hermès，两分钟搞定。
           </div>
         </div>
 
