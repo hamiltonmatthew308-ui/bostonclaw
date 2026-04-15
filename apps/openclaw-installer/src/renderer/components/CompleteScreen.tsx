@@ -1,9 +1,10 @@
-import { CheckCircle2, XCircle, ArrowRight, Globe } from 'lucide-react';
+import { CheckCircle2, XCircle, ArrowRight, Globe, FileText } from 'lucide-react';
 import { useInstallerStore } from '../store';
 import { useInstaller } from '../hooks/useInstaller';
 
 export function CompleteScreen() {
   const runResult = useInstallerStore((s) => s.runResult);
+  const selectedPath = useInstallerStore((s) => s.selectedPath);
   const setStep = useInstallerStore((s) => s.setStep);
   const reset = useInstallerStore((s) => s.reset);
   const { openExternal } = useInstaller();
@@ -21,7 +22,7 @@ export function CompleteScreen() {
       case 'open-browser':
         return '打开控制台';
       case 'open-app':
-        return '打开应用';
+        return selectedPath === 'freeclaw' ? '打开 FreeClaw' : '打开应用';
       case 'show-guide':
         return '查看指南';
       default:
@@ -102,7 +103,7 @@ export function CompleteScreen() {
         </div>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
         <button
           type="button"
           onClick={() => {
@@ -143,6 +144,29 @@ export function CompleteScreen() {
           <Globe size={15} />
           访问社区网站
         </button>
+
+        {selectedPath === 'freeclaw' && runResult.nextUrl?.startsWith('file://') && (
+          <button
+            type="button"
+            onClick={() => runResult.nextUrl && openExternal(runResult.nextUrl)}
+            className="lobster-control"
+            style={{
+              padding: '12px 20px',
+              border: '2px solid #2A241E',
+              background: '#FDFCF9',
+              color: '#2A241E',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <FileText size={15} />
+            查看 FreeClaw 许可
+          </button>
+        )}
 
         <button
           type="button"

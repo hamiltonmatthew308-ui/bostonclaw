@@ -19,6 +19,7 @@ extraResources:
     filter:
       - "icons/**/*"
       - "tray-icons/**/*"
+      - "freeclaw/**/*"
       - "uv*"
 
 asar: true
