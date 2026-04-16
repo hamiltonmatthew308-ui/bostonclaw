@@ -55,7 +55,6 @@ async function detectExistingBostonclaw(): Promise<string[]> {
     if (localAppData) checks.push(join(localAppData, 'Programs', 'Bostonclaw'));
     if (programFiles) checks.push(join(programFiles, 'Bostonclaw'));
     if (programFilesX86) checks.push(join(programFilesX86, 'Bostonclaw'));
-    checks.push(join(homedir(), 'AppData', 'Local', 'Programs', 'Bostonclaw'));
   } else if (process.platform === 'darwin') {
     checks.push('/Applications/Bostonclaw.app');
     checks.push('/Applications/Lobster.app');
@@ -65,10 +64,6 @@ async function detectExistingBostonclaw(): Promise<string[]> {
     checks.push(join(homedir(), '.local', 'share', 'bostonclaw'));
     checks.push(join(homedir(), '.local', 'share', 'lobster'));
   }
-
-  // Also check userData/runtime signs
-  const userData = getUserDataPath();
-  checks.push(userData);
 
   for (const p of checks) {
     if (existsSync(p)) hits.push(p);
@@ -146,10 +141,8 @@ export async function run(_plan: InstallPlan, onProgress: (p: InstallProgress) =
     if (logs.length > 100) logs.shift();
   };
 
-  const env = await detectEnvironment();
-  const isWin = env.os.platform === 'win';
+  const isWin = process.platform === 'win32';
 
-  // Detect existing Bostonclaw installations and warn
   const existingBostonclaw = await detectExistingBostonclaw();
   if (existingBostonclaw.length > 0) {
     pushLog(`检测到现有 Bostonclaw 安装/残留: ${existingBostonclaw.join('; ')}`);

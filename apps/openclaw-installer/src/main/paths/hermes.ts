@@ -1,4 +1,4 @@
-import { spawn } from 'child_process';
+import { spawn } from 'node:child_process';
 import type { EnvReport, InstallPlan, InstallProgress, RunResult } from '../../shared/types/installer';
 import { detectEnvironment } from '../env/detector';
 import { runShellStream } from '../utils/shell-stream';
@@ -55,6 +55,14 @@ function verifyHermes(): Promise<{ found: boolean; path: string | null; version:
 function diagnoseFailure(logText: string): string {
   const t = logText.toLowerCase();
 
+  if (
+    t.includes('bash :') ||
+    t.includes('commandnotfoundexception') ||
+    t.includes('bash: command not found') ||
+    t.includes('无法将“bash”项识别为')
+  ) {
+    return '当前 Windows 环境没有可用的 bash。请先安装 Git Bash，或先执行 `wsl --install -d Ubuntu` 并重启后重试。';
+  }
   if (t.includes('proxy') || t.includes('tunnel') || t.includes('econnrefused') || t.includes('proxyconnect')) {
     return '网络连接失败，可能是代理或防火墙拦截了请求。请检查网络代理设置后重试。';
   }
@@ -64,10 +72,10 @@ function diagnoseFailure(logText: string): string {
   if (t.includes('execution policy') || t.includes('running scripts is disabled') || t.includes('cannot be loaded because')) {
     return 'Windows 执行策略禁止了脚本运行。请以管理员身份打开 PowerShell 执行：Set-ExecutionPolicy RemoteSigned -Scope CurrentUser，然后重试。';
   }
-  if (t.includes('permission') || t.includes('access denied') || t.includes('eacces') || t.includes('epERM')) {
+  if (t.includes('permission') || t.includes('access denied') || t.includes('eacces') || t.includes('eperm')) {
     return '权限不足。请尝试以管理员身份运行安装器，或检查目标目录的写入权限。';
   }
-  if (t.includes('timeout') || t.includes('etimedout') || t.includes('etimmedout')) {
+  if (t.includes('timeout') || t.includes('etimedout') || t.includes('timed out')) {
     return '下载超时，网络可能不稳定。请检查网络连接后重试，或尝试使用镜像源。';
   }
   if (t.includes('curl') && (t.includes('not found') || t.includes('command not found'))) {
@@ -76,11 +84,8 @@ function diagnoseFailure(logText: string): string {
   if (t.includes('python') && (t.includes('not found') || t.includes('command not found'))) {
     return 'Hermes 需要 Python 环境。请先安装 Python 3.8+：https://www.python.org/downloads/';
   }
-  if (t.includes('wsl.exe [argument]') || t.includes('--install') || t.includes('--distribution')) {
+  if (t.includes('wsl.exe [argument]') || t.includes('no installed distributions') || t.includes('wsl_e_default_distro_not_found') || t.includes('--distribution')) {
     return '检测到 WSL 仅安装了组件但没有可用 Linux 发行版。请先在 PowerShell 执行 `wsl --install -d Ubuntu`，重启后重试。';
-  }
-  if (t.includes('no installed distributions') || t.includes('wsl_e_default_distro_not_found')) {
-    return 'WSL 未安装 Linux 发行版。请先执行 `wsl --install -d Ubuntu`。';
   }
 
   return '';
@@ -166,27 +171,36 @@ export async function run(_plan: InstallPlan, onProgress: (p: InstallProgress) =
           // 脚本执行成功，运行安装后验证
           onProgress({ step: '验证安装', percent: 95, log: '脚本完成，正在验证 Hermes 是否可用...' });
 
-          void verifyHermes().then((ver) => {
-            if (ver.found) {
-              const verInfo = ver.version ? ` — ${ver.version}` : '';
-              onProgress({ step: '安装完成', percent: 100, log: `✓ Hermes Agent 安装成功 (${ver.path})${verInfo}` });
+          verifyHermes()
+            .then((ver) => {
+              if (ver.found) {
+                const verInfo = ver.version ? ` — ${ver.version}` : '';
+                onProgress({ step: '安装完成', percent: 100, log: `✓ Hermes Agent 安装成功 (${ver.path})${verInfo}` });
+                resolve({
+                  success: true,
+                  message: `Hermes Agent 已安装${ver.version ? ` (${ver.version})` : ''}。在终端运行 \`hermes start\` 即可使用。`,
+                  nextAction: 'show-guide',
+                  nextUrl: 'https://github.com/NousResearch/hermes-agent#getting-started',
+                });
+              } else {
+                onProgress({ step: '验证完成', percent: 98, log: '⚠ 脚本成功，但 hermes 命令未在 PATH 中找到。可能需要重新打开终端。' });
+                resolve({
+                  success: true,
+                  message: '安装脚本已成功执行，但未检测到 hermes 命令。请重新打开终端后运行 `hermes start`。',
+                  nextAction: 'show-guide',
+                  nextUrl: 'https://github.com/NousResearch/hermes-agent#getting-started',
+                });
+              }
+            })
+            .catch((err: Error) => {
+              onProgress({ step: '验证完成', percent: 98, log: `⚠ 验证异常: ${err.message}` });
               resolve({
                 success: true,
-                message: `Hermes Agent 已安装${ver.version ? ` (${ver.version})` : ''}。在终端运行 \`hermes start\` 即可使用。`,
+                message: '安装脚本已执行，验证时出现异常。请重新打开终端后运行 `hermes start`。',
                 nextAction: 'show-guide',
                 nextUrl: 'https://github.com/NousResearch/hermes-agent#getting-started',
               });
-            } else {
-              // 脚本成功但 hermes 不在 PATH 上
-              onProgress({ step: '验证完成', percent: 98, log: '⚠ 脚本成功，但 hermes 命令未在 PATH 中找到。可能需要重新打开终端。' });
-              resolve({
-                success: true,
-                message: '安装脚本已成功执行，但未检测到 hermes 命令。请重新打开终端后运行 `hermes start`。如果仍然找不到，请尝试手动添加 PATH。',
-                nextAction: 'show-guide',
-                nextUrl: 'https://github.com/NousResearch/hermes-agent#getting-started',
-              });
-            }
-          });
+            });
         })
         .catch((err) => {
           const mayRetry = isWin && idx < candidates.length - 1;

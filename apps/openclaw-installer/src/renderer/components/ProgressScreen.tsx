@@ -21,7 +21,10 @@ export function ProgressScreen() {
 
   useEffect(() => {
     if (progress?.log) {
-      setLogs((prev) => [...prev, progress.log]);
+      setLogs((prev) => {
+        const next = [...prev, progress.log];
+        return next.length > 200 ? next.slice(-200) : next;
+      });
     }
   }, [progress?.log]);
 

@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 
-type StreamName = 'stdout' | 'stderr';
+
 
 export interface StreamOptions {
   command: string;
@@ -21,18 +21,18 @@ export interface StreamResult {
 
 function flushByNewline(
   chunk: Buffer,
-  stream: StreamName,
+  key: 'stdout' | 'stderr',
   state: { stdout: string; stderr: string },
   onLine: (line: string) => void,
 ): void {
-  const key = stream === 'stdout' ? 'stdout' : 'stderr';
+
   state[key] += chunk.toString();
   const parts = state[key].split(/\r?\n/);
   state[key] = parts.pop() ?? '';
   for (const raw of parts) {
     const line = raw.trim();
     if (!line) continue;
-    onLine(stream === 'stderr' ? `[stderr] ${line}` : line);
+    onLine(key === 'stderr' ? `[stderr] ${line}` : line);
   }
 }
 
