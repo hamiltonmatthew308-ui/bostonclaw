@@ -1,4 +1,7 @@
 import { spawn } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import type { EnvReport, InstallPlan, InstallProgress, RunResult } from '../../shared/types/installer';
 import { detectEnvironment } from '../env/detector';
 import { runShellStream } from '../utils/shell-stream';
@@ -8,6 +11,40 @@ const HERMES_ZIP_URL = 'https://github.com/NousResearch/hermes-agent/archive/ref
 const PYTHON_WINGET_ID = 'Python.Python.3.12';
 // Update this URL when a new Python 3.12.x is released: https://www.python.org/downloads/
 const PYTHON_INSTALLER_URL = 'https://www.python.org/ftp/python/3.12.8/python-3.12.8-amd64.exe';
+
+/** Find the bundled hermes-agent.zip — works in dev and packaged Electron */
+function getBundledHermesZip(): string | null {
+  const candidates = [
+    // Packaged: electron-builder copies resources/hermes/ → resources/hermes/
+    path.join(process.resourcesPath ?? '', 'resources', 'hermes', 'hermes-agent.zip'),
+    // Dev fallback
+    path.resolve(__dirname, '..', '..', '..', 'resources', 'hermes', 'hermes-agent.zip'),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
+}
+
+/** Extract a zip to a temp directory and return the extracted dir path */
+async function extractZip(zipPath: string): Promise<string> {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-'));
+  const { execFileSync } = await import('node:child_process');
+  if (process.platform === 'win32') {
+    execFileSync('powershell.exe', [
+      '-NoProfile', '-Command',
+      `Expand-Archive -Path '${zipPath}' -DestinationPath '${tmpDir}' -Force`,
+    ], { timeout: 60_000 });
+  } else {
+    execFileSync('unzip', ['-o', '-q', zipPath, '-d', tmpDir], { timeout: 60_000 });
+  }
+  // The zip typically extracts to a single top-level dir (hermes-agent-main/)
+  const entries = fs.readdirSync(tmpDir);
+  if (entries.length === 1 && fs.statSync(path.join(tmpDir, entries[0])).isDirectory()) {
+    return path.join(tmpDir, entries[0]);
+  }
+  return tmpDir;
+}
 
 export async function checkEnv(): Promise<EnvReport> {
   return detectEnvironment();
@@ -198,18 +235,42 @@ async function tryPipInstall(
     onProgress({ step: '环境检查', percent: 10, log: `✓ Python ${env.python.version} 已就绪` });
   }
 
-  onProgress({ step: '下载 Hermes Agent', percent: 25, log: '正在下载并安装 Hermes Agent...' });
+  // ─── Strategy 1: local bundled zip (zero network) ───
+  const bundledZip = getBundledHermesZip();
+  if (bundledZip) {
+    onProgress({ step: '安装 Hermes Agent', percent: 25, log: `从本地包安装 (免网络)...` });
+    try {
+      const srcDir = await extractZip(bundledZip);
+      const { code, logs } = await runPowershell(
+        [
+          '[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12',
+          'Write-Host "Installing Hermes Agent from local bundle..."',
+          `python -m pip install "${srcDir}" --quiet --disable-pip-version-check`,
+        ].join('; '),
+        { step: '安装 Hermes Agent...', startPercent: 25, endPercent: 90, onProgress: pCb },
+      );
+      if (code === 0) {
+        return await verifyAndReturn(onProgress, logLines);
+      }
+      logLines.push(...logs);
+      onProgress({ step: '本地安装失败', percent: 25, log: `本地安装退出码 ${code}，尝试网络安装...` });
+    } catch (err) {
+      onProgress({ step: '本地包异常', percent: 25, log: `本地包解压失败: ${err}，尝试网络安装...` });
+    }
+  }
 
-  // pip handles the download internally — no manual zip/extract needed
+  // ─── Strategy 2: pip install from GitHub URL (network) ───
+  onProgress({ step: '下载 Hermes Agent', percent: 30, log: '正在从 GitHub 下载安装 Hermes Agent...' });
+
   const installScript = [
     '[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12',
-    'Write-Host "Installing Hermes Agent via pip..."',
+    'Write-Host "Installing Hermes Agent via pip (network)..."',
     `python -m pip install "${HERMES_ZIP_URL}" --quiet --disable-pip-version-check`,
   ].join('; ');
 
   const { code, logs } = await runPowershell(installScript, {
     step: '安装 Hermes Agent...',
-    startPercent: 25,
+    startPercent: 30,
     endPercent: 90,
     onProgress: pCb,
   });
@@ -223,12 +284,20 @@ async function tryPipInstall(
     const diagnosed = diagnoseFailure(logText);
     return {
       success: false,
-      message: diagnosed || `pip 安装失败 (退出码 ${code})，请检查网络或权限后重试。`,
+      message: diagnosed || `pip 安装失败 (退出码 ${code})，请查看下方日志，或尝试重新运行。`,
       nextAction: 'none',
       logs: logLines.slice(-50),
     };
   }
 
+  return await verifyAndReturn(onProgress, logLines);
+}
+
+/** Shared verification after successful pip install */
+async function verifyAndReturn(
+  onProgress: (p: InstallProgress) => void,
+  _logLines: string[],
+): Promise<RunResult> {
   onProgress({ step: '验证安装', percent: 95, log: '安装完成，正在验证 Hermes 是否可用...' });
   const ver = await verifyHermes();
   if (ver.found) {

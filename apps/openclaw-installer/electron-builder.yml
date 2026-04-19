@@ -20,6 +20,7 @@ extraResources:
       - "icons/**/*"
       - "tray-icons/**/*"
       - "freeclaw/**/*"
+      - "hermes/**/*"
       - "uv*"
 
 asar: true
