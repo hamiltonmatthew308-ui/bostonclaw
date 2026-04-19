@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-04-19 — claude — feat
+### What
+Windows 原生安装 + 零点击自动启动
+### Why
+大量企业 Windows 电脑没有 bash/WSL/Git Bash，旧安装器完全无法工作。改为 Python pip 自动安装路径，并实现打开即装的零交互体验。
+### Files
+- `apps/openclaw-installer/src/main/paths/hermes.ts` — Windows Python pip 安装路径（winget 自动装 Python → pip install → 验证），Mac/Linux 已安装检测快路径
+- `apps/openclaw-installer/src/main/paths/openclaw.ts` — 去掉 WSL 硬门，裸 Windows 可走便携 Node.js
+- `apps/openclaw-installer/src/renderer/App.tsx` — 启动自动选 Hermes + autoStart，跳过向导
+- `apps/openclaw-installer/src/renderer/components/CompleteScreen.tsx` — 安装成功后 2s 自动打开指南
+- `apps/web/src/pages/Download.tsx` — Windows 命令改为 pip install
+- `packages/shared/src/lobster-registry.ts` — category 类型补全 persona/monitor/expert/creative
+
+---
+
 ## 2026-04-16 — claude — refactor
 ### What
 安装器 bug 修复 + 代码简化（simplify review 产出）
