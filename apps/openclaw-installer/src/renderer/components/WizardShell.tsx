@@ -1,6 +1,18 @@
 import type { ReactNode } from 'react';
 import { Check, Sparkles } from 'lucide-react';
 
+function BlockBLogo({ size = 42 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 100 100" fill="none" width={size} height={size}>
+      <rect x="8" y="8" width="84" height="84" rx="16" fill="#D4401A" />
+      <path
+        d="M 30 24 L 30 76 M 30 24 L 56 24 C 68 24, 68 48, 56 48 L 30 48 M 30 48 L 54 48 C 68 48, 68 76, 54 76 L 30 76"
+        fill="none" stroke="#FAFAF8" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 interface WizardStepItem {
   id: number;
   label: string;
@@ -69,19 +81,7 @@ export function WizardShell({
             gap: 14,
           }}
         >
-          <div
-            style={{
-              width: 42,
-              height: 42,
-              background: '#D4401A',
-              display: 'grid',
-              placeItems: 'center',
-              color: '#fff',
-              flexShrink: 0,
-            }}
-          >
-            <Sparkles style={{ width: 20, height: 20 }} />
-          </div>
+          <BlockBLogo size={42} />
           <div>
             <h1
               style={{
@@ -93,7 +93,7 @@ export function WizardShell({
                 letterSpacing: '-0.01em',
               }}
             >
-              BOSTONCLAW
+              B-Block
             </h1>
             <p
               style={{
