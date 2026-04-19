@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { CheckCircle2, XCircle, ArrowRight, Globe, FileText } from 'lucide-react';
 import { useInstallerStore } from '../store';
 import { useInstaller } from '../hooks/useInstaller';
@@ -8,6 +9,13 @@ export function CompleteScreen() {
   const setStep = useInstallerStore((s) => s.setStep);
   const reset = useInstallerStore((s) => s.reset);
   const { openExternal } = useInstaller();
+
+  // Auto-open guide/app on success after a brief delay so user sees the result
+  useEffect(() => {
+    if (!runResult?.success || !runResult.nextUrl) return;
+    const timer = setTimeout(() => openExternal(runResult.nextUrl!), 2000);
+    return () => clearTimeout(timer);
+  }, [runResult, openExternal]);
 
   const handlePrimaryAction = () => {
     if (!runResult) return;

@@ -26,23 +26,32 @@ export function Download() {
             下载安装器
           </h1>
           <p className="section-intro reveal-card">
-            选你的系统，点一下就行。不需要管理员权限，装完打开就能用。
+            支持 Windows 和 macOS。不需要管理员权限，装完打开就能用。
           </p>
 
-          <div className="hero-metrics" style={{ marginTop: '48px' }}>
-            <a href={GITHUB_RELEASES} className="metric-card reveal-card" style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer', display: 'block' }}>
-              <p className="metric-label">Windows</p>
-              <p className="metric-value" style={{ fontSize: 'clamp(2rem, 4vw, 3rem)' }}>.exe</p>
-              <p className="metric-caption">~70 MB · 双击安装</p>
+          <div style={{ marginTop: '48px', display: 'grid', gap: '16px', maxWidth: '420px' }}>
+            <a
+              href={GITHUB_RELEASES}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="primary-link"
+              style={{
+                display: 'block',
+                textAlign: 'center',
+                padding: '16px 24px',
+                fontSize: '15px',
+                fontWeight: 800,
+                textDecoration: 'none',
+              }}
+            >
+              去 GitHub 下载最新版 →
             </a>
-            <a href={GITHUB_RELEASES} className="metric-card reveal-card" style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer', display: 'block' }}>
-              <p className="metric-label">macOS</p>
-              <p className="metric-value" style={{ fontSize: 'clamp(2rem, 4vw, 3rem)' }}>.dmg</p>
-              <p className="metric-caption">~65 MB · Intel + Apple Silicon</p>
-            </a>
+            <p style={{ fontSize: '13px', color: 'var(--ink-muted)', lineHeight: '1.7' }}>
+              页面里有 Windows (.exe) 和 macOS (.dmg) 两个版本，选你的系统下载就行。
+            </p>
           </div>
 
-          <p style={{ marginTop: '24px', fontSize: '13px', color: 'var(--ink-muted)', fontFamily: "'IBM Plex Mono', monospace" }}>
+          <p style={{ marginTop: '32px', fontSize: '13px', color: 'var(--ink-muted)', fontFamily: "'IBM Plex Mono', monospace" }}>
             下载遇到问题？试试下面的「大厂封装版」，直接用腾讯/字节/阿里等大厂的 AI 产品也行。
           </p>
         </div>
@@ -68,7 +77,7 @@ export function Download() {
               <div style={{ display: 'grid', gap: '16px', fontSize: '14px', color: 'var(--ink-soft)', lineHeight: '1.8' }}>
                 <p>GitHub 40.4k Star，代号「爱马仕」。和龙虾（OpenClaw）不同，Hermes 主打「自进化」——不是每次都从零开始，而是用得越多越聪明。</p>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                <div className="hermes-features-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
                   <div style={{ padding: '16px', background: 'var(--paper-soft)', border: '1px solid var(--line)', borderRadius: '3px' }}>
                     <p style={{ margin: '0 0 6px', color: 'var(--ink)', fontWeight: 600, fontSize: '13px' }}>自动学会新技能</p>
                     <p style={{ margin: 0, fontSize: '13px' }}>帮你做完一个复杂任务后，会把整个流程沉淀成 Skill 文件。下次遇到类似任务直接复用，还会自动优化流程。</p>
@@ -95,7 +104,18 @@ export function Download() {
                   </div>
                 </div>
 
-                <p>安装很简单，一行命令搞定：<code style={{ background: 'var(--copper-light)', padding: '2px 8px', borderRadius: '2px', fontSize: '12px', fontFamily: "'IBM Plex Mono', monospace" }}>curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash</code></p>
+                <p>安装很简单，一行命令搞定：</p>
+                <div style={{ display: 'grid', gap: '8px', marginTop: '8px', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
+                  <div style={{ padding: '10px 14px', background: 'var(--copper-light)', borderRadius: '3px' }}>
+                    <p style={{ margin: '0 0 4px', fontSize: '11px', color: 'var(--ink-muted)', fontFamily: "'IBM Plex Mono', monospace" }}>Mac / Linux</p>
+                    <code style={{ fontSize: '12px', fontFamily: "'IBM Plex Mono', monospace", wordBreak: 'break-all' }}>curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash</code>
+                  </div>
+                  <div style={{ padding: '10px 14px', background: 'var(--copper-light)', borderRadius: '3px' }}>
+                    <p style={{ margin: '0 0 4px', fontSize: '11px', color: 'var(--ink-muted)', fontFamily: "'IBM Plex Mono', monospace" }}>Windows</p>
+                    <code style={{ fontSize: '12px', fontFamily: "'IBM Plex Mono', monospace", wordBreak: 'break-all' }}>pip install git+https://github.com/NousResearch/hermes-agent.git</code>
+                    <p style={{ margin: '6px 0 0', fontSize: '11px', color: 'var(--ink-muted)' }}>需要 Python 3.11+ 和 git。没有？用上面的安装器自动搞定。</p>
+                  </div>
+                </div>
               </div>
 
               <div className="template-footer" style={{ marginTop: '20px' }}>

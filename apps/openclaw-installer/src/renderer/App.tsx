@@ -42,6 +42,16 @@ function App() {
   const beginPath = useInstallerStore((s) => s.beginPath);
   const setAutoStart = useInstallerStore((s) => s.setAutoStart);
 
+  // Auto-start: launch directly into installation, no manual choices needed
+  useEffect(() => {
+    if (selectedPath || isExecuting) return; // already started or running
+
+    // Hermes is the default: fully automatic, no API key needed
+    beginPath('hermes');
+    setAutoStart(true);
+    setStep('preflight');
+  }, [beginPath, setStep, setAutoStart, selectedPath, isExecuting]);
+
   // Deep link 监听：网页一键唤起时自动选择路径
   useEffect(() => {
     const validPaths = ['openclaw', 'freeclaw', 'hermes'];

@@ -4,6 +4,10 @@ import { detectEnvironment } from '../env/detector';
 import { runShellStream } from '../utils/shell-stream';
 
 const HERMES_INSTALL_SH = 'https://hermes-agent.nousresearch.com/install.sh';
+const HERMES_ZIP_URL = 'https://github.com/NousResearch/hermes-agent/archive/refs/heads/main.zip';
+const PYTHON_WINGET_ID = 'Python.Python.3.12';
+// Update this URL when a new Python 3.12.x is released: https://www.python.org/downloads/
+const PYTHON_INSTALLER_URL = 'https://www.python.org/ftp/python/3.12.8/python-3.12.8-amd64.exe';
 
 export async function checkEnv(): Promise<EnvReport> {
   return detectEnvironment();
@@ -20,9 +24,44 @@ export function plan(_env: EnvReport, _opts?: { experimentalWinNative?: boolean 
   };
 }
 
-/**
- * 安装后验证：检查 hermes 是否在 PATH 上可用
- */
+// ─── Shared helpers ─────────────────────────────────────────────────
+
+/** Parse "Python 3.12.0" → {major, minor} */
+function parsePythonVersion(ver: string | null): { major: number; minor: number } | null {
+  if (!ver) return null;
+  const m = ver.match(/(\d+)\.(\d+)/);
+  if (!m) return null;
+  return { major: parseInt(m[1], 10), minor: parseInt(m[2], 10) };
+}
+
+function pythonMeetsMinimum(ver: string | null, major: number, minor: number): boolean {
+  const p = parsePythonVersion(ver);
+  if (!p) return false;
+  return p.major > major || (p.major === major && p.minor >= minor);
+}
+
+/** Deduplicate the onProgress+logLines callback pattern */
+function makeProgressCb(onProgress: (p: InstallProgress) => void, logLines: string[]) {
+  return (p: InstallProgress) => {
+    const line = p.log.trim();
+    if (line) logLines.push(line);
+    onProgress(p);
+  };
+}
+
+function runPowershell(script: string, opts: {
+  step: string;
+  startPercent: number;
+  endPercent: number;
+  onProgress: (p: InstallProgress) => void;
+}) {
+  return runShellStream({
+    command: 'powershell.exe',
+    args: ['-ExecutionPolicy', 'Bypass', '-NoProfile', '-Command', script],
+    ...opts,
+  });
+}
+
 function verifyHermes(): Promise<{ found: boolean; path: string | null; version: string | null }> {
   return new Promise((resolve) => {
     const which = process.platform === 'win32' ? 'where' : 'which';
@@ -38,7 +77,6 @@ function verifyHermes(): Promise<{ found: boolean; path: string | null; version:
         return;
       }
       const foundPath = outPath.split('\n')[0].trim();
-      // 尝试获取版本号
       const verChild = spawn('hermes', ['--version'], { shell: false });
       let verOut = '';
       verChild.stdout?.on('data', (d: Buffer) => { verOut += d.toString().trim(); });
@@ -49,9 +87,6 @@ function verifyHermes(): Promise<{ found: boolean; path: string | null; version:
   });
 }
 
-/**
- * 分析常见安装失败原因，给出中文可操作提示
- */
 function diagnoseFailure(logText: string): string {
   const t = logText.toLowerCase();
 
@@ -59,9 +94,9 @@ function diagnoseFailure(logText: string): string {
     t.includes('bash :') ||
     t.includes('commandnotfoundexception') ||
     t.includes('bash: command not found') ||
-    t.includes('无法将“bash”项识别为')
+    t.includes('无法将"bash"项识别为')
   ) {
-    return '当前 Windows 环境没有可用的 bash。请先安装 Git Bash，或先执行 `wsl --install -d Ubuntu` 并重启后重试。';
+    return '当前 Windows 环境没有可用的 bash。安装器将自动尝试 Python pip 方式安装。';
   }
   if (t.includes('proxy') || t.includes('tunnel') || t.includes('econnrefused') || t.includes('proxyconnect')) {
     return '网络连接失败，可能是代理或防火墙拦截了请求。请检查网络代理设置后重试。';
@@ -79,25 +114,151 @@ function diagnoseFailure(logText: string): string {
     return '下载超时，网络可能不稳定。请检查网络连接后重试，或尝试使用镜像源。';
   }
   if (t.includes('curl') && (t.includes('not found') || t.includes('command not found'))) {
-    return '系统中未找到 curl 命令。macOS/Linux 请先安装 curl，Windows 请确认系统环境正常。';
+    return '系统中未找到 curl 命令。安装器将自动尝试 Python pip 方式安装。';
   }
-  if (t.includes('python') && (t.includes('not found') || t.includes('command not found'))) {
-    return 'Hermes 需要 Python 环境。请先安装 Python 3.8+：https://www.python.org/downloads/';
+  if (t.includes('python') && (t.includes('not found') || t.includes('command not found') || t.includes('无法将'))) {
+    return 'Python 未安装或不在 PATH 中。请先安装 Python 3.11+：https://www.python.org/downloads/';
+  }
+  if (t.includes('no module named pip') || t.includes("no module named 'pip'")) {
+    return 'Python 已安装但 pip 缺失。请运行 `python -m ensurepip` 后重试。';
   }
   if (t.includes('wsl.exe [argument]') || t.includes('no installed distributions') || t.includes('wsl_e_default_distro_not_found') || t.includes('--distribution')) {
-    return '检测到 WSL 仅安装了组件但没有可用 Linux 发行版。请先在 PowerShell 执行 `wsl --install -d Ubuntu`，重启后重试。';
+    return '检测到 WSL 仅安装了组件但没有可用 Linux 发行版。安装器将自动尝试 Python pip 方式安装。';
+  }
+  if (t.includes('build') && (t.includes('failed') || t.includes('error')) && t.includes('wheel')) {
+    return 'pip 编译依赖失败，可能缺少 C++ 构建工具。请安装 Visual Studio Build Tools 后重试。';
   }
 
   return '';
 }
 
-export async function run(_plan: InstallPlan, onProgress: (p: InstallProgress) => void): Promise<RunResult> {
+// ─── Windows: Python pip install path ───────────────────────────────
+
+async function ensurePython(
+  onProgress: (p: InstallProgress) => void,
+  logLines: string[],
+): Promise<boolean> {
+  const pCb = makeProgressCb(onProgress, logLines);
+
+  onProgress({ step: '准备 Python', percent: 10, log: '尝试通过 winget 安装 Python 3.12...' });
+  const { code: wgCode } = await runShellStream({
+    command: 'winget',
+    args: ['install', PYTHON_WINGET_ID, '--accept-package-agreements', '--accept-source-agreements', '--silent'],
+    step: '安装 Python 3.12...',
+    startPercent: 10,
+    endPercent: 22,
+    onProgress: pCb,
+  });
+
+  if (wgCode === 0) {
+    onProgress({ step: 'Python 就绪', percent: 24, log: '✓ Python 3.12 已安装' });
+    return true;
+  }
+
+  onProgress({ step: '准备 Python', percent: 12, log: 'winget 不可用，从 python.org 下载安装...' });
+  const dlScript = [
+    `[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12`,
+    `Invoke-WebRequest -Uri "${PYTHON_INSTALLER_URL}" -OutFile "$env:TEMP\\python-installer.exe" -UseBasicParsing`,
+    'Write-Host "Installing Python (silent)..."',
+    'Start-Process -FilePath "$env:TEMP\\python-installer.exe" -ArgumentList "/quiet","InstallAllUsers=0","PrependPath=1","Include_pip=1" -Wait',
+    'Remove-Item -Force "$env:TEMP\\python-installer.exe" -ErrorAction SilentlyContinue',
+  ].join('; ');
+
+  const { code: dlCode } = await runPowershell(dlScript, {
+    step: '下载安装 Python...',
+    startPercent: 12,
+    endPercent: 22,
+    onProgress: pCb,
+  });
+
+  if (dlCode === 0) {
+    onProgress({ step: 'Python 就绪', percent: 24, log: '✓ Python 3.12 已安装' });
+    return true;
+  }
+
+  return false;
+}
+
+/** Windows: pip install Hermes. Returns 'FALLBACK' to signal bash fallback. */
+async function tryPipInstall(
+  env: EnvReport,
+  onProgress: (p: InstallProgress) => void,
+  logLines: string[],
+): Promise<RunResult | 'FALLBACK'> {
+  const pCb = makeProgressCb(onProgress, logLines);
+
+  const needsPython = !env.python.installed || !pythonMeetsMinimum(env.python.version, 3, 11);
+  if (needsPython) {
+    const ok = await ensurePython(onProgress, logLines);
+    if (!ok) {
+      onProgress({ step: 'Python 安装失败', percent: 15, log: 'Python 自动安装失败，尝试 bash 方式...' });
+      return 'FALLBACK';
+    }
+  } else {
+    onProgress({ step: '环境检查', percent: 10, log: `✓ Python ${env.python.version} 已就绪` });
+  }
+
+  onProgress({ step: '下载 Hermes Agent', percent: 25, log: '正在下载并安装 Hermes Agent...' });
+
+  // pip handles the download internally — no manual zip/extract needed
+  const installScript = [
+    '[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12',
+    'Write-Host "Installing Hermes Agent via pip..."',
+    `python -m pip install "${HERMES_ZIP_URL}" --quiet --disable-pip-version-check`,
+  ].join('; ');
+
+  const { code, logs } = await runPowershell(installScript, {
+    step: '安装 Hermes Agent...',
+    startPercent: 25,
+    endPercent: 90,
+    onProgress: pCb,
+  });
+
+  if (code !== 0) {
+    const logText = [...logLines, ...logs].join('\n');
+    if (/python.*not found|python.*无法将|no module named pip/i.test(logText)) {
+      onProgress({ step: 'pip 安装失败', percent: 25, log: 'Python/pip 不可用，尝试 bash 方式...' });
+      return 'FALLBACK';
+    }
+    const diagnosed = diagnoseFailure(logText);
+    return {
+      success: false,
+      message: diagnosed || `pip 安装失败 (退出码 ${code})，请检查网络或权限后重试。`,
+      nextAction: 'none',
+      logs: logLines.slice(-50),
+    };
+  }
+
+  onProgress({ step: '验证安装', percent: 95, log: '安装完成，正在验证 Hermes 是否可用...' });
+  const ver = await verifyHermes();
+  if (ver.found) {
+    const verInfo = ver.version ? ` — ${ver.version}` : '';
+    onProgress({ step: '安装完成', percent: 100, log: `✓ Hermes Agent 安装成功 (${ver.path})${verInfo}` });
+    return {
+      success: true,
+      message: `Hermes Agent 已安装${ver.version ? ` (${ver.version})` : ''}。在终端运行 \`hermes start\` 即可使用。`,
+      nextAction: 'show-guide',
+      nextUrl: 'https://github.com/NousResearch/hermes-agent#getting-started',
+    };
+  }
+
+  onProgress({ step: '验证完成', percent: 98, log: '⚠ 安装成功但 hermes 命令未在 PATH 中找到。可能需要重新打开终端。' });
+  return {
+    success: true,
+    message: 'Hermes Agent 已安装，但未检测到 hermes 命令。请重新打开终端后运行 `hermes start`。',
+    nextAction: 'show-guide',
+    nextUrl: 'https://github.com/NousResearch/hermes-agent#getting-started',
+  };
+}
+
+// ─── Bash candidate fallback (original logic) ──────────────────────
+
+function runBashCandidates(
+  isWin: boolean,
+  onProgress: (p: InstallProgress) => void,
+  logLines: string[],
+): Promise<RunResult> {
   return new Promise((resolve) => {
-    const isWin = process.platform === 'win32';
-    const logLines: string[] = [];
-
-    onProgress({ step: '启动安装脚本', percent: 8, log: '运行 Hermes Agent 一键安装...' });
-
     const unixInstallCmd = `curl -fsSL ${HERMES_INSTALL_SH} | bash`;
     const candidates = isWin
       ? [
@@ -106,13 +267,15 @@ export async function run(_plan: InstallPlan, onProgress: (p: InstallProgress) =
         ]
       : [{ command: 'bash', args: ['-c', unixInstallCmd], hint: 'bash' }];
 
+    const pCb = makeProgressCb(onProgress, logLines);
+
     const runAttempt = (idx: number): void => {
       const candidate = candidates[idx];
       if (!candidate) {
         resolve({
           success: false,
           message:
-            '无法启动 Hermes 安装脚本：未找到可用的 bash 环境。Windows 请安装 Git Bash 或启用 WSL 后重试。',
+            '无法启动 Hermes 安装：Python pip 和 bash 方式均不可用。请安装 Python 3.11+ 或 Git Bash 后重试。',
           nextAction: 'show-guide',
           nextUrl: 'https://hermes-agent.nousresearch.com/',
           logs: logLines.slice(-80),
@@ -132,11 +295,7 @@ export async function run(_plan: InstallPlan, onProgress: (p: InstallProgress) =
         step: '安装中...',
         startPercent: 10,
         endPercent: 92,
-        onProgress: (p) => {
-          const line = p.log.trim();
-          if (line) logLines.push(line);
-          onProgress(p);
-        },
+        onProgress: pCb,
       })
         .then(({ code }) => {
           if (code !== 0) {
@@ -157,7 +316,7 @@ export async function run(_plan: InstallPlan, onProgress: (p: InstallProgress) =
             const diagnosed = diagnoseFailure(logText);
             const message = diagnosed
               ? diagnosed
-              : `安装脚本退出码 ${code}，请检查网络或权限后重试。`;
+              : `安装脚本退出码 ${code}。请查看下方日志，或尝试重新运行。`;
 
             resolve({
               success: false,
@@ -168,7 +327,6 @@ export async function run(_plan: InstallPlan, onProgress: (p: InstallProgress) =
             return;
           }
 
-          // 脚本执行成功，运行安装后验证
           onProgress({ step: '验证安装', percent: 95, log: '脚本完成，正在验证 Hermes 是否可用...' });
 
           verifyHermes()
@@ -224,4 +382,40 @@ export async function run(_plan: InstallPlan, onProgress: (p: InstallProgress) =
 
     runAttempt(0);
   });
+}
+
+// ─── Main entry ─────────────────────────────────────────────────────
+
+export async function run(_plan: InstallPlan, onProgress: (p: InstallProgress) => void): Promise<RunResult> {
+  const isWin = process.platform === 'win32';
+  const logLines: string[] = [];
+
+  onProgress({ step: '检测环境', percent: 5, log: '检查 Hermes Agent 安装状态...' });
+
+  // Fast path: already installed
+  const existing = await verifyHermes();
+  if (existing.found) {
+    const verInfo = existing.version ? ` (${existing.version})` : '';
+    onProgress({ step: '已完成', percent: 100, log: `✓ Hermes Agent 已安装 ${existing.path}${verInfo}` });
+    return {
+      success: true,
+      message: `Hermes Agent 已安装${verInfo}。在终端运行 \`hermes start\` 即可使用。`,
+      nextAction: 'show-guide',
+      nextUrl: 'https://github.com/NousResearch/hermes-agent#getting-started',
+    };
+  }
+
+  onProgress({ step: '启动安装', percent: 8, log: 'Hermes Agent 未安装，开始自动安装...' });
+
+  if (isWin) {
+    try {
+      const env = await detectEnvironment();
+      const result = await tryPipInstall(env, onProgress, logLines);
+      if (result !== 'FALLBACK') return result;
+    } catch (err) {
+      logLines.push(`Python pip 路径异常: ${String(err)}`);
+    }
+  }
+
+  return runBashCandidates(isWin, onProgress, logLines);
 }

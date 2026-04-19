@@ -394,23 +394,11 @@ export async function checkEnv(): Promise<EnvReport> {
 
 export function plan(env: EnvReport, opts?: { experimentalWinNative?: boolean }): InstallPlan {
   const warnings: string[] = [];
-  if (env.os.platform === 'win' && !env.wsl2) {
-    if (opts?.experimentalWinNative) {
-      warnings.push('你已启用 Windows 原生实验路径，如遇问题请改用 WSL2 或厂商封装版。');
-    } else {
-      warnings.push('Windows 原生路径为实验性支持，建议启用 WSL2 获得最佳体验。');
-    }
-  }
   if (env.diskFreeGB > 0 && env.diskFreeGB < 2) {
     warnings.push('可用磁盘空间不足（建议至少 2GB）。');
   }
   if (!env.nodejs.installed) {
-    const canAutoDownload = env.os.platform === 'mac' || env.os.platform === 'linux' || opts?.experimentalWinNative;
-    if (canAutoDownload) {
-      warnings.push('未检测到 Node.js，安装器将尝试自动下载便携版本。');
-    } else {
-      warnings.push('未检测到 Node.js。Windows 默认路径下不会自动下载，建议启用 WSL2 或手动安装 Node.js。');
-    }
+    warnings.push('未检测到 Node.js，安装器将尝试自动下载便携版本。');
   }
 
   return {
@@ -452,15 +440,9 @@ export async function run(plan: InstallPlan, onProgress: (p: InstallProgress) =>
       // ignore
     }
 
-    // Windows without WSL2: default to guide unless experimental switch is on
-    if (env.os.platform === 'win' && !env.wsl2 && !plan.experimentalWinNative) {
-      return {
-        success: true,
-        message: 'Windows 环境下建议先安装 WSL2，再运行 OpenClaw 可获得最佳稳定性。',
-        nextAction: 'show-guide',
-        nextUrl: 'https://learn.microsoft.com/zh-cn/windows/wsl/install',
-        logs,
-      };
+    // Windows without WSL2: proceed with portable Node.js (ensureNode handles the download)
+    if (env.os.platform === 'win' && !env.wsl2) {
+      onProgress({ step: '环境检查', percent: 4, log: 'Windows 原生模式：将下载便携版 Node.js，无需 WSL。' });
     }
 
     onProgress({ step: '检查环境', percent: 5, log: `平台: ${env.os.platform} ${env.os.arch}` });
