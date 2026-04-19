@@ -39,7 +39,8 @@ export function WizardShell({
     <div
       style={{
         display: 'flex',
-        height: '760px',
+        height: 'calc(100vh - 48px)',
+        maxHeight: '760px',
         width: '100%',
         maxWidth: '1240px',
         background: '#FDFCF9',
