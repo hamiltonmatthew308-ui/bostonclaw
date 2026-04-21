@@ -1,4 +1,5 @@
-import { spawn } from 'node:child_process';
+import { spawn, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -15,9 +16,7 @@ const PYTHON_INSTALLER_URL = 'https://www.python.org/ftp/python/3.12.8/python-3.
 /** Find the bundled hermes-agent.zip — works in dev and packaged Electron */
 function getBundledHermesZip(): string | null {
   const candidates = [
-    // Packaged: electron-builder copies resources/hermes/ → resources/hermes/
     path.join(process.resourcesPath ?? '', 'resources', 'hermes', 'hermes-agent.zip'),
-    // Dev fallback
     path.resolve(__dirname, '..', '..', '..', 'resources', 'hermes', 'hermes-agent.zip'),
   ];
   for (const p of candidates) {
@@ -25,6 +24,32 @@ function getBundledHermesZip(): string | null {
   }
   return null;
 }
+
+function getBundledPythonZip(): string | null {
+  const candidates = [
+    path.join(process.resourcesPath ?? '', 'resources', 'python-embed'),
+    path.resolve(__dirname, '..', '..', '..', 'resources', 'python-embed'),
+  ];
+  for (const dir of candidates) {
+    if (!fs.existsSync(dir)) continue;
+    const files = fs.readdirSync(dir).filter((f) => f.endsWith('-embed-amd64.zip'));
+    if (files.length > 0) return path.join(dir, files[0]);
+  }
+  return null;
+}
+
+function getBundledGetPip(): string | null {
+  const candidates = [
+    path.join(process.resourcesPath ?? '', 'resources', 'python-embed', 'get-pip.py'),
+    path.resolve(__dirname, '..', '..', '..', 'resources', 'python-embed', 'get-pip.py'),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
+}
+
+
 
 /** Extract a zip to a temp directory and return the extracted dir path */
 async function extractZip(zipPath: string): Promise<string> {
@@ -102,7 +127,7 @@ function runPowershell(script: string, opts: {
 function verifyHermes(): Promise<{ found: boolean; path: string | null; version: string | null }> {
   return new Promise((resolve) => {
     const which = process.platform === 'win32' ? 'where' : 'which';
-    const whichChild = spawn(which, ['hermes'], { shell: false });
+    const whichChild = spawn(which, ['hermes'], { shell: false, windowsHide: true });
     let outPath = '';
 
     whichChild.stdout?.on('data', (d: Buffer) => { outPath += d.toString(); });
@@ -114,7 +139,7 @@ function verifyHermes(): Promise<{ found: boolean; path: string | null; version:
         return;
       }
       const foundPath = outPath.split('\n')[0].trim();
-      const verChild = spawn('hermes', ['--version'], { shell: false });
+      const verChild = spawn('hermes', ['--version'], { shell: false, windowsHide: true });
       let verOut = '';
       verChild.stdout?.on('data', (d: Buffer) => { verOut += d.toString().trim(); });
       verChild.stderr?.on('data', () => {});
@@ -171,13 +196,86 @@ function diagnoseFailure(logText: string): string {
 
 // ─── Windows: Python pip install path ───────────────────────────────
 
+async function extractBundledPython(targetDir: string): Promise<string | null> {
+  const zipPath = getBundledPythonZip();
+  if (!zipPath) return null;
+
+  fs.mkdirSync(targetDir, { recursive: true });
+
+  const { execFileSync } = await import('node:child_process');
+  execFileSync('powershell.exe', [
+    '-NoProfile', '-Command',
+    `Expand-Archive -Path '${zipPath}' -DestinationPath '${targetDir}' -Force`,
+  ], { timeout: 60_000, windowsHide: true });
+
+  // Enable site-packages for embeddable Python
+  const pthFiles = fs.readdirSync(targetDir).filter((f) => f.endsWith('._pth'));
+  for (const pth of pthFiles) {
+    const pthPath = path.join(targetDir, pth);
+    let content = fs.readFileSync(pthPath, 'utf-8');
+    if (!content.includes('import site')) {
+      content += '\nimport site\n';
+      fs.writeFileSync(pthPath, content, 'utf-8');
+    }
+  }
+
+  // Install pip if get-pip.py is bundled
+  const getPip = getBundledGetPip();
+  const pythonExe = path.join(targetDir, 'python.exe');
+  if (getPip && fs.existsSync(pythonExe)) {
+    try {
+      execFileSync(pythonExe, [getPip, '--no-warn-script-location'], {
+        timeout: 120_000,
+        windowsHide: true,
+        cwd: targetDir,
+      });
+    } catch {
+      // pip may already exist; ignore failure
+    }
+  }
+
+  return pythonExe;
+}
+
 async function ensurePython(
+  env: EnvReport,
   onProgress: (p: InstallProgress) => void,
   logLines: string[],
-): Promise<boolean> {
+): Promise<string | null> {
   const pCb = makeProgressCb(onProgress, logLines);
 
-  onProgress({ step: '准备 Python', percent: 10, log: '尝试通过 winget 安装 Python 3.12...' });
+  // 1. Use system Python if available and meets minimum
+  if (env.python.installed && pythonMeetsMinimum(env.python.version, 3, 11)) {
+    onProgress({ step: 'Python 就绪', percent: 20, log: `✓ 系统 Python ${env.python.version} 已就绪` });
+    return 'python';
+  }
+
+  // 2. Try extracting bundled Python embeddable (offline)
+  onProgress({ step: '准备 Python', percent: 10, log: '尝试从安装包提取 Python...' });
+  const userData = (() => {
+    try {
+      const { app } = require('electron');
+      return app.getPath('userData');
+    } catch {
+      return path.join(os.homedir(), '.bostonclaw-installer');
+    }
+  })();
+  const embedDir = path.join(userData, 'runtime', 'python-embed');
+
+  const existingPython = path.join(embedDir, 'python.exe');
+  if (fs.existsSync(existingPython)) {
+    onProgress({ step: 'Python 就绪', percent: 20, log: `✓ 复用已提取 Python: ${existingPython}` });
+    return existingPython;
+  }
+
+  const extracted = await extractBundledPython(embedDir);
+  if (extracted) {
+    onProgress({ step: 'Python 就绪', percent: 24, log: `✓ Python 已提取: ${extracted}` });
+    return extracted;
+  }
+
+  // 3. Fallback: winget
+  onProgress({ step: '准备 Python', percent: 10, log: '离线包不可用，尝试通过 winget 安装 Python 3.12...' });
   const { code: wgCode } = await runShellStream({
     command: 'winget',
     args: ['install', PYTHON_WINGET_ID, '--accept-package-agreements', '--accept-source-agreements', '--silent'],
@@ -189,9 +287,10 @@ async function ensurePython(
 
   if (wgCode === 0) {
     onProgress({ step: 'Python 就绪', percent: 24, log: '✓ Python 3.12 已安装' });
-    return true;
+    return 'python';
   }
 
+  // 4. Fallback: download from python.org
   onProgress({ step: '准备 Python', percent: 12, log: 'winget 不可用，从 python.org 下载安装...' });
   const dlScript = [
     `[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12`,
@@ -210,10 +309,10 @@ async function ensurePython(
 
   if (dlCode === 0) {
     onProgress({ step: 'Python 就绪', percent: 24, log: '✓ Python 3.12 已安装' });
-    return true;
+    return 'python';
   }
 
-  return false;
+  return null;
 }
 
 /** Windows: pip install Hermes. Returns 'FALLBACK' to signal bash fallback. */
@@ -224,16 +323,18 @@ async function tryPipInstall(
 ): Promise<RunResult | 'FALLBACK'> {
   const pCb = makeProgressCb(onProgress, logLines);
 
-  const needsPython = !env.python.installed || !pythonMeetsMinimum(env.python.version, 3, 11);
-  if (needsPython) {
-    const ok = await ensurePython(onProgress, logLines);
-    if (!ok) {
-      onProgress({ step: 'Python 安装失败', percent: 15, log: 'Python 自动安装失败，尝试 bash 方式...' });
-      return 'FALLBACK';
-    }
-  } else {
-    onProgress({ step: '环境检查', percent: 10, log: `✓ Python ${env.python.version} 已就绪` });
+  const pythonExe = await ensurePython(env, onProgress, logLines);
+  if (!pythonExe) {
+    onProgress({ step: 'Python 安装失败', percent: 15, log: 'Python 自动安装失败，尝试 bash 方式...' });
+    return 'FALLBACK';
   }
+  if (pythonExe === 'python') {
+    onProgress({ step: '环境检查', percent: 10, log: `✓ Python ${env.python.version} 已就绪` });
+  } else {
+    onProgress({ step: '环境检查', percent: 10, log: `✓ 使用提取的 Python: ${pythonExe}` });
+  }
+
+  const pipCmd = `${pythonExe} -m pip`;
 
   // ─── Strategy 1: local bundled zip (zero network) ───
   const bundledZip = getBundledHermesZip();
@@ -245,12 +346,12 @@ async function tryPipInstall(
         [
           '[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12',
           'Write-Host "Installing Hermes Agent from local bundle..."',
-          `python -m pip install "${srcDir}" --quiet --disable-pip-version-check`,
+          `${pipCmd} install "${srcDir}" --quiet --disable-pip-version-check`,
         ].join('; '),
         { step: '安装 Hermes Agent...', startPercent: 25, endPercent: 90, onProgress: pCb },
       );
       if (code === 0) {
-        return await verifyAndReturn(onProgress, logLines);
+        return await verifyAndReturn(onProgress, logLines, pythonExe);
       }
       logLines.push(...logs);
       onProgress({ step: '本地安装失败', percent: 25, log: `本地安装退出码 ${code}，尝试网络安装...` });
@@ -265,7 +366,7 @@ async function tryPipInstall(
   const installScript = [
     '[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12',
     'Write-Host "Installing Hermes Agent via pip (network)..."',
-    `python -m pip install "${HERMES_ZIP_URL}" --quiet --disable-pip-version-check`,
+    `${pipCmd} install "${HERMES_ZIP_URL}" --quiet --disable-pip-version-check`,
   ].join('; ');
 
   const { code, logs } = await runPowershell(installScript, {
@@ -290,15 +391,18 @@ async function tryPipInstall(
     };
   }
 
-  return await verifyAndReturn(onProgress, logLines);
+  return await verifyAndReturn(onProgress, logLines, pythonExe);
 }
 
 /** Shared verification after successful pip install */
 async function verifyAndReturn(
   onProgress: (p: InstallProgress) => void,
   _logLines: string[],
+  pythonExe?: string,
 ): Promise<RunResult> {
   onProgress({ step: '验证安装', percent: 95, log: '安装完成，正在验证 Hermes 是否可用...' });
+
+  // Try PATH first
   const ver = await verifyHermes();
   if (ver.found) {
     const verInfo = ver.version ? ` — ${ver.version}` : '';
@@ -309,6 +413,23 @@ async function verifyAndReturn(
       nextAction: 'show-guide',
       nextUrl: 'https://github.com/NousResearch/hermes-agent#getting-started',
     };
+  }
+
+  // Fallback: try via Python module (for bundled Python where Scripts not in PATH yet)
+  if (pythonExe && pythonExe !== 'python') {
+    try {
+      const { stdout } = await promisify(execFile)(pythonExe, ['-m', 'hermes', '--version'], { windowsHide: true });
+      const version = stdout.trim();
+      onProgress({ step: '安装完成', percent: 100, log: `✓ Hermes Agent 安装成功 (via ${pythonExe}) — ${version}` });
+      return {
+        success: true,
+        message: `Hermes Agent 已安装${version ? ` (${version})` : ''}。运行 \`${pythonExe} -m hermes start\` 即可使用。`,
+        nextAction: 'show-guide',
+        nextUrl: 'https://github.com/NousResearch/hermes-agent#getting-started',
+      };
+    } catch {
+      // ignore
+    }
   }
 
   onProgress({ step: '验证完成', percent: 98, log: '⚠ 安装成功但 hermes 命令未在 PATH 中找到。可能需要重新打开终端。' });

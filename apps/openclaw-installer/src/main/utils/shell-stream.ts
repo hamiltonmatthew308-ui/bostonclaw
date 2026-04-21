@@ -60,6 +60,7 @@ export async function runShellStream(opts: StreamOptions): Promise<StreamResult>
       shell: opts.shell ?? false,
       cwd: opts.cwd,
       env: opts.env,
+      windowsHide: true,
     });
     addLog(`[shell] pid=${child.pid ?? 'unknown'}`);
 

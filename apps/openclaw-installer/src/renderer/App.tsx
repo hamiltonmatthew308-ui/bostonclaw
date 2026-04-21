@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Sparkles, Cpu, KeyRound, Rocket, CheckCircle2 } from 'lucide-react';
 import { useInstallerStore, type WizardStep } from './store';
+import type { InstallPath } from '../shared/types/installer';
 import { WizardShell } from './components/WizardShell';
 import { QuizScreen } from './components/QuizScreen';
 import { PreflightScreen } from './components/PreflightScreen';
@@ -60,7 +61,7 @@ function App() {
       if (!validPaths.includes(path)) return;
       if (isExecuting) return; // 安装进行中，不干扰
 
-      beginPath(path as any);
+      beginPath(path as InstallPath);
       if (auto) setAutoStart(true);
       setStep('preflight');
     });

@@ -1,11 +1,21 @@
 /**
  * Gateway Manager
  * 管理 OpenClaw Gateway 进程的启动、停止和监控
+ *
+ * 路径逻辑与 openclaw.ts 保持一致，确保安装完成后托盘能找到 Gateway 入口。
  */
-import { utilityProcess } from 'electron';
+import { utilityProcess, app } from 'electron';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+
+const USER_DATA_PATH = (() => {
+  try {
+    return app.getPath('userData');
+  } catch {
+    return join(homedir(), '.bostonclaw-installer');
+  }
+})();
 
 const OPENCLAW_DIR = join(homedir(), '.openclaw');
 const GATEWAY_PORT = 18789;
@@ -25,34 +35,63 @@ export class GatewayManager {
     return this.status;
   }
 
+  /**
+   * 查找 Node.js 可执行文件，优先使用 openclaw.ts 下载的便携版本。
+   */
   private getNodePath(): string {
-    const nodeExe = process.platform === 'win32' ? 'node.exe' : 'node';
-    // 优先使用内置 Node.js
-    const bundledPath = join(OPENCLAW_DIR, 'node', nodeExe);
-    if (existsSync(bundledPath)) {
-      return bundledPath;
+    const platform = process.platform;
+    const nodeExe = platform === 'win32' ? 'node.exe' : 'node';
+
+    // 1. Runtime node downloaded by openclaw.ts (ensureNode)
+    const runtimeDir = join(USER_DATA_PATH, 'runtime', 'node');
+    const version = 'v22.14.0';
+    const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
+
+    let filename: string;
+    if (platform === 'darwin') {
+      filename = `node-${version}-darwin-${arch}`;
+    } else if (platform === 'linux') {
+      filename = `node-${version}-linux-${arch}`;
+    } else {
+      filename = `node-${version}-win-x64`;
     }
-    // 备选 bin 目录
-    const binPath = join(OPENCLAW_DIR, 'node', 'bin', nodeExe);
-    if (existsSync(binPath)) {
-      return binPath;
+
+    const candidates = [
+      platform === 'win32'
+        ? join(runtimeDir, filename, 'node.exe')
+        : join(runtimeDir, filename, 'bin', 'node'),
+      // Legacy paths (older installs)
+      join(OPENCLAW_DIR, 'node', nodeExe),
+      join(OPENCLAW_DIR, 'node', 'bin', nodeExe),
+    ];
+
+    for (const c of candidates) {
+      if (existsSync(c)) return c;
     }
-    return 'node'; // 系统 PATH
+
+    return 'node'; // system PATH fallback
   }
 
+  /**
+   * 查找 OpenClaw JS 入口，与 openclaw.ts 的 findOpenClawJs / findOpenClawCmd 逻辑一致。
+   */
   private getEntryPath(): string | null {
-    const runtimeDir = join(OPENCLAW_DIR, 'openclaw-runtime');
-    const entryPath = join(runtimeDir, 'openclaw.mjs');
-    
-    if (existsSync(entryPath)) {
-      return entryPath;
+    const npmPrefix = join(USER_DATA_PATH, 'runtime', 'npm-global');
+
+    const candidates = [
+      // openclaw.ts installOpenClaw + findOpenClawJs paths
+      join(npmPrefix, 'node_modules', 'openclaw', 'bin', 'openclaw.js'),
+      join(npmPrefix, 'node_modules', 'openclaw', 'index.js'),
+      join(npmPrefix, 'lib', 'node_modules', 'openclaw', 'bin', 'openclaw.js'),
+      // Legacy paths
+      join(OPENCLAW_DIR, 'openclaw-runtime', 'openclaw.mjs'),
+      join(OPENCLAW_DIR, 'openclaw-runtime', 'dist', 'entry.js'),
+    ];
+
+    for (const c of candidates) {
+      if (existsSync(c)) return c;
     }
-    
-    const altEntryPath = join(runtimeDir, 'dist', 'entry.js');
-    if (existsSync(altEntryPath)) {
-      return altEntryPath;
-    }
-    
+
     return null;
   }
 
@@ -60,11 +99,11 @@ export class GatewayManager {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 5000);
-      
+
       const response = await fetch(`http://127.0.0.1:${GATEWAY_PORT}/health`, {
         signal: controller.signal,
       });
-      
+
       clearTimeout(timeout);
       return response.ok;
     } catch {
@@ -86,8 +125,9 @@ export class GatewayManager {
     }
 
     const entryPath = this.getEntryPath();
+
     if (!entryPath) {
-      throw new Error('Gateway entry script not found');
+      throw new Error('Gateway entry script not found. Please run the installer first.');
     }
 
     return new Promise((resolve, reject) => {
@@ -98,6 +138,8 @@ export class GatewayManager {
           ...process.env,
           OPENCLAW_PORT: String(GATEWAY_PORT),
           OPENCLAW_HOST: '127.0.0.1',
+          OPENCLAW_CONFIG_PATH: join(OPENCLAW_DIR, 'openclaw.json'),
+          OPENCLAW_HOME: OPENCLAW_DIR,
         },
         serviceName: 'OpenClaw Gateway',
       });
@@ -119,7 +161,7 @@ export class GatewayManager {
             resolve();
             return;
           }
-          await new Promise(r => setTimeout(r, 1000));
+          await new Promise((r) => setTimeout(r, 1000));
         }
         clearTimeout(timeout);
         reject(new Error('Gateway health check failed'));
@@ -150,7 +192,7 @@ export class GatewayManager {
 
   async restart(): Promise<void> {
     await this.stop();
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, 1000));
     await this.start();
   }
 }

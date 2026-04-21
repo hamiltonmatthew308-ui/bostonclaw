@@ -4,18 +4,28 @@
  * 
  * 注意：这是独立的入口点，安装完成后由主程序启动
  */
-import { app, Tray, Menu, dialog } from 'electron';
+import { app, Tray, Menu } from 'electron';
 import { join } from 'path';
+import { existsSync } from 'node:fs';
 import { GatewayManager } from './gateway-manager';
 
 let tray: Tray | null = null;
 let gatewayManager: GatewayManager | null = null;
 
-function getIconPath(): string {
-  if (app.isPackaged) {
-    return join(process.resourcesPath, 'resources', 'tray-icons', 'icon.png');
+function getIconPath(): string | undefined {
+  const candidates = [
+    app.isPackaged
+      ? join(process.resourcesPath, 'resources', 'tray-icons', 'icon.png')
+      : join(__dirname, '../../resources', 'tray-icons', 'icon.png'),
+    // Fallback to app icon if tray icon is missing
+    app.isPackaged
+      ? join(process.resourcesPath, 'resources', 'icon.png')
+      : join(__dirname, '../../resources', 'icon.png'),
+  ];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
   }
-  return join(__dirname, '../../resources', 'tray-icons', 'icon.png');
+  return undefined;
 }
 
 function createTrayMenu(): Menu {
@@ -94,10 +104,14 @@ function updateTray(): void {
 
 export function createTray(): void {
   const iconPath = getIconPath();
+  if (!iconPath) {
+    console.warn('[Tray] No icon found, skipping tray creation');
+    return;
+  }
   tray = new Tray(iconPath);
   tray.setToolTip('OpenClaw Gateway');
   tray.setContextMenu(createTrayMenu());
-  
+
   tray.on('click', () => {
     tray?.popUpContextMenu();
   });

@@ -37,6 +37,7 @@ export interface InstallPlan {
   warnings: string[];
   experimentalWinNative?: boolean;
   provider?: ProviderConfig;
+  registerStartup?: boolean;
 }
 
 export interface RunResult {

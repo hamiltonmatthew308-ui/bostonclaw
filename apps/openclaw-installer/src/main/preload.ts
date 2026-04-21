@@ -52,7 +52,7 @@ const electronAPI = {
     },
     off: (channel: string, callback?: (...args: unknown[]) => void) => {
       if (callback) {
-        ipcRenderer.removeListener(channel, callback as any);
+        ipcRenderer.removeListener(channel, callback as (...args: unknown[]) => void);
       } else {
         ipcRenderer.removeAllListeners(channel);
       }

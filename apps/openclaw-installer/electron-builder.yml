@@ -21,13 +21,16 @@ extraResources:
       - "tray-icons/**/*"
       - "freeclaw/**/*"
       - "hermes/**/*"
+      - "node-runtime/**/*"
+      - "openclaw-bundle/**/*"
+      - "python-embed/**/*"
       - "uv*"
 
 asar: true
 
 win:
   target: nsis
-  # icon: resources/icon.ico  # TODO: add Windows icon before release
+  icon: resources/icons/icon.ico
   artifactName: "bostonclaw-setup-${version}.${ext}"
 
 nsis:
@@ -44,7 +47,7 @@ mac:
   target:
     - target: dmg
       arch: [x64, arm64]
-  # icon: resources/icon.icns  # TODO: add macOS icon before release
+  icon: resources/icons/icon.icns
   category: public.app-category.productivity
 
 dmg:

@@ -29,6 +29,8 @@ export function PreflightScreen() {
   const setWinExperimentalNative = useInstallerStore((s) => s.setWinExperimentalNative);
   const autoStart = useInstallerStore((s) => s.autoStart);
   const setAutoStart = useInstallerStore((s) => s.setAutoStart);
+  const registerStartup = useInstallerStore((s) => s.registerStartup);
+  const setRegisterStartup = useInstallerStore((s) => s.setRegisterStartup);
   const { checkEnv, plan } = useInstaller();
   const [loading, setLoading] = useState(false);
 
@@ -218,6 +220,42 @@ export function PreflightScreen() {
             ))}
           </ul>
         </div>
+      )}
+
+      {selectedPath === 'openclaw' && (
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 10,
+            padding: 12,
+            background: 'rgba(26,122,74,0.06)',
+            border: '1.5px solid rgba(26,122,74,0.25)',
+            borderRadius: 0,
+            cursor: 'pointer',
+            fontSize: 13,
+            color: '#1a4a2e',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={registerStartup}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              setRegisterStartup(checked);
+              if (planObj) {
+                setPlan({ ...planObj, registerStartup: checked });
+              }
+            }}
+            style={{ marginTop: 2 }}
+          />
+          <div>
+            <div style={{ fontWeight: 700, marginBottom: 2 }}>开机自动启动 Gateway</div>
+            <div style={{ fontSize: 12, opacity: 0.9 }}>
+              登录系统时自动启动 OpenClaw Gateway，无需手动运行。
+            </div>
+          </div>
+        </label>
       )}
 
       {envReport?.os.platform === 'win' && !envReport.wsl2 && selectedPath === 'openclaw' && (

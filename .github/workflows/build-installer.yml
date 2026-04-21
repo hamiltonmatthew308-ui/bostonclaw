@@ -49,14 +49,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Bundle offline resources
+        run: pnpm --filter bostonclaw-installer bundle:all
+
       - name: Type check
-        run: pnpm --filter lobster-installer typecheck
+        run: pnpm --filter bostonclaw-installer typecheck
 
       - name: Build renderer + main
-        run: pnpm --filter lobster-installer build:vite
+        run: pnpm --filter bostonclaw-installer build:vite
 
       - name: Package Windows NSIS
-        run: pnpm --filter lobster-installer package:win
+        run: pnpm --filter bostonclaw-installer package:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -101,14 +104,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Bundle offline resources
+        run: |
+          pnpm --filter bostonclaw-installer bundle:node
+          pnpm --filter bostonclaw-installer bundle:openclaw
+
       - name: Type check
-        run: pnpm --filter lobster-installer typecheck
+        run: pnpm --filter bostonclaw-installer typecheck
 
       - name: Build renderer + main
-        run: pnpm --filter lobster-installer build:vite
+        run: pnpm --filter bostonclaw-installer build:vite
 
       - name: Package macOS DMG
-        run: pnpm --filter lobster-installer package:mac
+        run: pnpm --filter bostonclaw-installer package:mac
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

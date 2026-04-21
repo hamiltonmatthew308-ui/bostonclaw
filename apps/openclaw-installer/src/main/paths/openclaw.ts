@@ -3,12 +3,13 @@ import { detectEnvironment } from '../env/detector';
 import { app } from 'electron';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
-import { existsSync, createWriteStream } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { existsSync, createWriteStream, readdirSync, cpSync } from 'node:fs';
+import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { get } from 'node:https';
 import { runShellStream } from '../utils/shell-stream';
+import { registerWindowsPath, registerMacPath, registerWindowsStartup, registerMacStartup } from '../utils/system-integration';
 
 const execFileAsync = promisify(execFile);
 
@@ -22,6 +23,37 @@ function getUserDataPath(): string {
     return join(homedir(), '.bostonclaw-installer');
   }
 }
+
+function getResourcesDir(): string {
+  try {
+    const appPath = app.getAppPath();
+    if (appPath.endsWith('.asar')) {
+      return dirname(appPath);
+    }
+    return join(appPath, 'resources');
+  } catch {
+    return join(process.cwd(), 'resources');
+  }
+}
+
+function getBundledNodeArchive(): string | null {
+  const dir = join(getResourcesDir(), 'node-runtime');
+  if (!existsSync(dir)) return null;
+  const files = readdirSync(dir).filter(
+    (f) => f.endsWith('.zip') || f.endsWith('.tar.xz')
+  );
+  if (files.length > 0) return join(dir, files[0]);
+  return null;
+}
+
+function getBundledOpenClawDir(): string | null {
+  const dir = join(getResourcesDir(), 'openclaw-bundle');
+  return existsSync(dir) ? dir : null;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Network fallback helpers                                           */
+/* ------------------------------------------------------------------ */
 
 function classifyDownloadError(err: unknown, statusCode?: number): string {
   const msg = err instanceof Error ? err.message : String(err);
@@ -92,23 +124,74 @@ async function downloadFile(url: string, dest: string, onProgress?: (percent: nu
   });
 }
 
+/* ------------------------------------------------------------------ */
+/*  Node.js                                                            */
+/* ------------------------------------------------------------------ */
+
+async function extractNodeArchive(archivePath: string, destDir: string): Promise<void> {
+  if (archivePath.endsWith('.zip')) {
+    await execFileAsync('powershell.exe', [
+      '-NoProfile',
+      '-Command',
+      `Expand-Archive -Path "${archivePath}" -DestinationPath "${destDir}" -Force`,
+    ], { windowsHide: true });
+  } else {
+    await execFileAsync('tar', ['-xf', archivePath, '-C', destDir], { windowsHide: true });
+  }
+}
+
+function findNodeExe(runtimeDir: string): string | null {
+  const entries = readdirSync(runtimeDir).filter((d) => d.startsWith('node-'));
+  // Windows
+  for (const d of entries) {
+    const win = join(runtimeDir, d, 'node.exe');
+    if (existsSync(win)) return win;
+  }
+  // macOS / Linux
+  for (const d of entries) {
+    const unix = join(runtimeDir, d, 'bin', 'node');
+    if (existsSync(unix)) return unix;
+  }
+  return null;
+}
+
 async function ensureNode(env: EnvReport, onProgress: (p: InstallProgress) => void): Promise<string> {
+  // 1. Prefer system Node.js
   if (env.nodejs.installed && env.nodejs.path) {
     onProgress({ step: '检查 Node.js', percent: 5, log: `检测到系统 Node.js: ${env.nodejs.version}` });
     return env.nodejs.path;
   }
 
-  onProgress({ step: '下载 Node.js', percent: 10, log: '未检测到系统 Node.js，开始下载便携版本...' });
+  const runtimeDir = join(getUserDataPath(), 'runtime', 'node');
+  const platform = env.os.platform;
+
+  // 2. Check already-extracted bundled Node.js
+  let nodeExe = findNodeExe(runtimeDir);
+  if (nodeExe) {
+    onProgress({ step: '复用已提取 Node.js', percent: 15, log: `复用: ${nodeExe}` });
+    return nodeExe;
+  }
+
+  // 3. Extract bundled archive (offline)
+  const bundledArchive = getBundledNodeArchive();
+  if (bundledArchive) {
+    onProgress({ step: '提取 Node.js', percent: 10, log: `从安装包提取: ${basename(bundledArchive)}` });
+    await mkdir(runtimeDir, { recursive: true });
+    await extractNodeArchive(bundledArchive, runtimeDir);
+    nodeExe = findNodeExe(runtimeDir);
+    if (nodeExe) {
+      onProgress({ step: '提取 Node.js', percent: 30, log: `Node.js 已就绪: ${nodeExe}` });
+      return nodeExe;
+    }
+  }
+
+  // 4. Fallback: download from network
+  onProgress({ step: '下载 Node.js', percent: 10, log: '未找到离线包，开始下载...' });
 
   const arch = env.os.arch === 'arm64' ? 'arm64' : 'x64';
-  const runtimeDir = join(getUserDataPath(), 'runtime', 'node');
-  await mkdir(runtimeDir, { recursive: true });
-
   const version = 'v22.14.0';
-  const platform = env.os.platform;
   let filename: string;
   let ext: string;
-  let nodeExe: string;
 
   if (platform === 'mac') {
     filename = `node-${version}-darwin-${arch}`;
@@ -143,13 +226,7 @@ async function ensureNode(env: EnvReport, onProgress: (p: InstallProgress) => vo
       });
 
       onProgress({ step: '下载 Node.js', percent: 40, log: '下载完成，开始解压...' });
-
-      if (platform === 'win') {
-        await execFileAsync('powershell.exe', ['-Command', `Expand-Archive -Path "${downloadPath}" -DestinationPath "${runtimeDir}" -Force`]);
-      } else {
-        await execFileAsync('tar', ['-xf', downloadPath, '-C', runtimeDir]);
-      }
-
+      await extractNodeArchive(downloadPath, runtimeDir);
       onProgress({ step: '下载 Node.js', percent: 50, log: '解压完成' });
 
       if (!existsSync(nodeExe)) {
@@ -180,11 +257,42 @@ async function ensureNode(env: EnvReport, onProgress: (p: InstallProgress) => vo
   throw new Error(`${lastError?.message || '未知错误'}${tips}`);
 }
 
-async function installOpenClaw(
+/* ------------------------------------------------------------------ */
+/*  OpenClaw installation                                              */
+/* ------------------------------------------------------------------ */
+
+async function installOpenClawFromBundle(
+  npmPrefix: string,
+  onProgress: (p: InstallProgress) => void
+): Promise<string | null> {
+  const bundleDir = getBundledOpenClawDir();
+  if (!bundleDir) return null;
+
+  onProgress({ step: '安装 OpenClaw', percent: 40, log: '从安装包提取 OpenClaw...' });
+
+  const nodeModulesDest = join(npmPrefix, 'node_modules');
+  await mkdir(nodeModulesDest, { recursive: true });
+
+  // Copy entire bundled node_modules into npmPrefix/node_modules
+  cpSync(bundleDir, nodeModulesDest, { recursive: true, force: true, dereference: true });
+
+  onProgress({ step: '安装 OpenClaw', percent: 55, log: '提取完成' });
+
+  const cmd = await findOpenClawCmd(npmPrefix);
+  if (!cmd) {
+    onProgress({ step: '安装 OpenClaw', percent: 55, log: '警告: 提取后未找到 openclaw 命令' });
+    return null;
+  }
+
+  onProgress({ step: '安装 OpenClaw', percent: 60, log: '离线安装完成' });
+  return cmd;
+}
+
+async function installOpenClawFromNpm(
   nodePath: string,
+  npmPrefix: string,
   onProgress: (p: InstallProgress) => void
 ): Promise<string> {
-  const npmPrefix = join(getUserDataPath(), 'runtime', 'npm-global');
   const npmCli = process.platform === 'win32'
     ? join(nodePath, '..', 'node_modules', 'npm', 'bin', 'npm-cli.js')
     : join(nodePath, '..', '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js');
@@ -211,13 +319,27 @@ async function installOpenClaw(
   }
 
   const openclawCmd = await findOpenClawCmd(npmPrefix);
-
   if (!openclawCmd) {
     throw new Error('OpenClaw 安装后未找到可执行文件');
   }
 
-  onProgress({ step: '安装 OpenClaw', percent: 60, log: '安装完成' });
+  onProgress({ step: '安装 OpenClaw', percent: 60, log: 'npm 安装完成' });
   return openclawCmd;
+}
+
+async function installOpenClaw(
+  nodePath: string,
+  onProgress: (p: InstallProgress) => void
+): Promise<string> {
+  const npmPrefix = join(getUserDataPath(), 'runtime', 'npm-global');
+
+  // 1. Try bundled offline package
+  const bundled = await installOpenClawFromBundle(npmPrefix, onProgress);
+  if (bundled) return bundled;
+
+  // 2. Fallback: npm install from network
+  onProgress({ step: '安装 OpenClaw', percent: 38, log: '未找到离线包，尝试 npm 安装...' });
+  return installOpenClawFromNpm(nodePath, npmPrefix, onProgress);
 }
 
 async function resolveOpenClawCmd(_nodePath: string): Promise<string | null> {
@@ -275,27 +397,60 @@ function findOpenClawJs(npmPrefix: string): string | null {
   return null;
 }
 
+/* ------------------------------------------------------------------ */
+/*  PATH registration                                                  */
+/* ------------------------------------------------------------------ */
+
+async function registerRuntimePaths(nodePath: string): Promise<void> {
+  const binDir = process.platform === 'win32'
+    ? join(getUserDataPath(), 'runtime', 'npm-global')
+    : join(getUserDataPath(), 'runtime', 'npm-global', 'bin');
+
+  if (!existsSync(binDir)) return;
+
+  try {
+    if (process.platform === 'win32') {
+      const added = await registerWindowsPath(binDir);
+      if (added) {
+        // Also add Node.js dir to PATH so `node` is available globally
+        const nodeDir = dirname(nodePath);
+        await registerWindowsPath(nodeDir);
+      }
+    } else {
+      await registerMacPath(binDir);
+    }
+  } catch (err) {
+    // Non-fatal: PATH registration failure shouldn't break install
+    console.warn('[PATH] Registration skipped:', err instanceof Error ? err.message : String(err));
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Config & Gateway                                                   */
+/* ------------------------------------------------------------------ */
+
 async function writeOpenClawConfig(provider?: ProviderConfig): Promise<void> {
   await mkdir(OPENCLAW_DIR, { recursive: true });
   const configPath = join(OPENCLAW_DIR, 'openclaw.json');
-  const config = {
+
+  let existing: Record<string, unknown> = {};
+  if (existsSync(configPath)) {
+    try {
+      const raw = await readFile(configPath, 'utf-8');
+      existing = JSON.parse(raw);
+    } catch {
+      // ignore corrupt config
+    }
+  }
+
+  const baseConfig = {
     version: '1.0.0',
     gateway: {
       enabled: true,
       port: GATEWAY_PORT,
       host: '127.0.0.1',
     },
-    providers: provider
-      ? [
-          {
-            id: provider.id,
-            name: provider.name,
-            baseUrl: provider.baseUrl,
-            defaultModel: provider.defaultModel,
-            apiKey: provider.apiKey,
-          },
-        ]
-      : [],
+    providers: [] as Array<Record<string, unknown>>,
     channels: {},
     plugins: {
       allow: [],
@@ -306,7 +461,28 @@ async function writeOpenClawConfig(provider?: ProviderConfig): Promise<void> {
       directories: [join(OPENCLAW_DIR, 'skills')],
     },
   };
-  await writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+  const merged = { ...baseConfig, ...existing };
+
+  if (provider) {
+    const providers = Array.isArray(merged.providers) ? [...merged.providers] : [];
+    const idx = providers.findIndex((p: { id?: string }) => p.id === provider.id);
+    const entry = {
+      id: provider.id,
+      name: provider.name,
+      baseUrl: provider.baseUrl,
+      defaultModel: provider.defaultModel,
+      apiKey: provider.apiKey,
+    };
+    if (idx >= 0) {
+      providers[idx] = entry;
+    } else {
+      providers.push(entry);
+    }
+    merged.providers = providers;
+  }
+
+  await writeFile(configPath, JSON.stringify(merged, null, 2), 'utf-8');
 }
 
 async function startGateway(
@@ -344,6 +520,7 @@ async function startGateway(
     detached: true,
     shell: spawnShell,
     stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
     env: {
       ...process.env,
       OPENCLAW_CONFIG_PATH: join(OPENCLAW_DIR, 'openclaw.json'),
@@ -370,7 +547,6 @@ async function startGateway(
         return;
       }
       if (res.status >= 500) {
-        // Server up but erroring; give it a bit more time
         await new Promise((r) => setTimeout(r, 800));
         continue;
       }
@@ -388,6 +564,10 @@ async function startGateway(
   throw new Error('Gateway 在 15 秒内未就绪，请检查端口是否被占用或 Node 版本是否兼容');
 }
 
+/* ------------------------------------------------------------------ */
+/*  Public API                                                         */
+/* ------------------------------------------------------------------ */
+
 export async function checkEnv(): Promise<EnvReport> {
   return detectEnvironment();
 }
@@ -398,12 +578,12 @@ export function plan(env: EnvReport, opts?: { experimentalWinNative?: boolean })
     warnings.push('可用磁盘空间不足（建议至少 2GB）。');
   }
   if (!env.nodejs.installed) {
-    warnings.push('未检测到 Node.js，安装器将尝试自动下载便携版本。');
+    warnings.push('未检测到 Node.js，安装器将尝试从离线包提取或自动下载便携版本。');
   }
 
   return {
     steps: [
-      { id: 'preflight', label: '检查 Node.js / 网络 / 磁盘', estimate: '1 min' },
+      { id: 'preflight', label: '检查 Node.js / 磁盘', estimate: '1 min' },
       { id: 'install', label: '安装 OpenClaw runtime', estimate: '3-10 min' },
       { id: 'configure', label: '写入配置并启动 Gateway', estimate: '1-3 min' },
       { id: 'verify', label: '验证 dashboard 可访问', estimate: '1 min' },
@@ -440,9 +620,8 @@ export async function run(plan: InstallPlan, onProgress: (p: InstallProgress) =>
       // ignore
     }
 
-    // Windows without WSL2: proceed with portable Node.js (ensureNode handles the download)
     if (env.os.platform === 'win' && !env.wsl2) {
-      onProgress({ step: '环境检查', percent: 4, log: 'Windows 原生模式：将下载便携版 Node.js，无需 WSL。' });
+      onProgress({ step: '环境检查', percent: 4, log: 'Windows 原生模式：将提取或下载便携版 Node.js，无需 WSL。' });
     }
 
     onProgress({ step: '检查环境', percent: 5, log: `平台: ${env.os.platform} ${env.os.arch}` });
@@ -454,11 +633,34 @@ export async function run(plan: InstallPlan, onProgress: (p: InstallProgress) =>
     const openclawCmd = existing ?? (await installOpenClaw(nodePath, onProgress));
     pushLog(`OpenClaw: ${openclawCmd}`);
 
+    // Register PATH so openclaw is globally available
+    await registerRuntimePaths(nodePath);
+    pushLog('PATH 已更新');
+
     await writeOpenClawConfig(plan.provider);
     pushLog('配置已写入');
 
     await startGateway(openclawCmd, nodePath, onProgress);
     pushLog('Gateway 启动成功');
+
+    // Register startup if user opted in
+    if (plan.registerStartup) {
+      try {
+        const npmPrefix = inferNpmPrefix(openclawCmd);
+        const jsEntry = findOpenClawJs(npmPrefix);
+        if (jsEntry) {
+          const startupCmd = `"${nodePath}" "${jsEntry}" gateway run --port=${GATEWAY_PORT}`;
+          if (process.platform === 'win32') {
+            await registerWindowsStartup('BostonclawGateway', startupCmd);
+          } else {
+            await registerMacStartup('com.bostonclaw.gateway', startupCmd);
+          }
+          pushLog('已注册开机启动 Gateway');
+        }
+      } catch (err) {
+        pushLog(`注册开机启动失败: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
 
     onProgress({ step: '完成', percent: 100, log: '全部完成' });
 

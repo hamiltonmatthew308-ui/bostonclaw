@@ -48,7 +48,7 @@ export async function runPath(
     return await PATHS[pathId].run(plan, onProgress);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const logs = (error as any).logs ?? [];
+    const logs = (error as { logs?: string[] }).logs ?? [];
     return { success: false, message, nextAction: 'none', logs };
   }
 }

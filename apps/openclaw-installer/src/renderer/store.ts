@@ -22,6 +22,7 @@ interface InstallerStore {
   isExecuting: boolean;
   winExperimentalNative: boolean;
   autoStart: boolean;
+  registerStartup: boolean;
 
   setStep: (step: WizardStep) => void;
   nextStep: () => void;
@@ -36,6 +37,7 @@ interface InstallerStore {
   setExecuting: (executing: boolean) => void;
   setWinExperimentalNative: (v: boolean) => void;
   setAutoStart: (v: boolean) => void;
+  setRegisterStartup: (v: boolean) => void;
   reset: () => void;
 }
 
@@ -53,6 +55,7 @@ const initialState = {
   isExecuting: false,
   winExperimentalNative: false,
   autoStart: false,
+  registerStartup: false,
 };
 
 export const useInstallerStore = create<InstallerStore>((set) => ({
@@ -83,5 +86,6 @@ export const useInstallerStore = create<InstallerStore>((set) => ({
   setRunResult: (result) => set({ runResult: result }),
   setExecuting: (executing) => set({ isExecuting: executing }),
   setWinExperimentalNative: (v) => set({ winExperimentalNative: v }),
+  setRegisterStartup: (v) => set({ registerStartup: v }),
   reset: () => set(initialState),
 }));
