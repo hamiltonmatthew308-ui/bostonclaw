@@ -1,4 +1,4 @@
-import { spawn, execFile } from 'node:child_process';
+import { spawn, execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -51,15 +51,19 @@ function getBundledGetPip(): string | null {
 
 
 
+/** Escape a string for safe embedding in PowerShell single-quoted strings */
+function escapePs(s: string): string {
+  return s.replace(/'/g, "''");
+}
+
 /** Extract a zip to a temp directory and return the extracted dir path */
 async function extractZip(zipPath: string): Promise<string> {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-'));
-  const { execFileSync } = await import('node:child_process');
   if (process.platform === 'win32') {
     execFileSync('powershell.exe', [
       '-NoProfile', '-Command',
-      `Expand-Archive -Path '${zipPath}' -DestinationPath '${tmpDir}' -Force`,
-    ], { timeout: 60_000 });
+      `Expand-Archive -Path '${escapePs(zipPath)}' -DestinationPath '${escapePs(tmpDir)}' -Force`,
+    ], { timeout: 60_000, windowsHide: true });
   } else {
     execFileSync('unzip', ['-o', '-q', zipPath, '-d', tmpDir], { timeout: 60_000 });
   }
@@ -202,10 +206,9 @@ async function extractBundledPython(targetDir: string): Promise<string | null> {
 
   fs.mkdirSync(targetDir, { recursive: true });
 
-  const { execFileSync } = await import('node:child_process');
   execFileSync('powershell.exe', [
     '-NoProfile', '-Command',
-    `Expand-Archive -Path '${zipPath}' -DestinationPath '${targetDir}' -Force`,
+    `Expand-Archive -Path '${escapePs(zipPath)}' -DestinationPath '${escapePs(targetDir)}' -Force`,
   ], { timeout: 60_000, windowsHide: true });
 
   // Enable site-packages for embeddable Python
@@ -346,7 +349,7 @@ async function tryPipInstall(
         [
           '[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12',
           'Write-Host "Installing Hermes Agent from local bundle..."',
-          `${pipCmd} install "${srcDir}" --quiet --disable-pip-version-check`,
+          `${pipCmd} install "${escapePs(srcDir)}" --quiet --disable-pip-version-check`,
         ].join('; '),
         { step: '安装 Hermes Agent...', startPercent: 25, endPercent: 90, onProgress: pCb },
       );
@@ -360,13 +363,50 @@ async function tryPipInstall(
     }
   }
 
-  // ─── Strategy 2: pip install from GitHub URL (network) ───
+  // ─── Strategy 2: pip install from GitHub (network) ───
+  // Download zip via PowerShell, extract, then pip install from local dir.
+  // Direct `pip install <url>` on raw GitHub zips is unreliable (nested root dir).
   onProgress({ step: '下载 Hermes Agent', percent: 30, log: '正在从 GitHub 下载安装 Hermes Agent...' });
 
-  const installScript = [
+  const dlZip = path.join(os.tmpdir(), 'hermes-agent.zip');
+  const downloadScript = [
     '[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12',
-    'Write-Host "Installing Hermes Agent via pip (network)..."',
-    `${pipCmd} install "${HERMES_ZIP_URL}" --quiet --disable-pip-version-check`,
+    `Invoke-WebRequest -Uri "${HERMES_ZIP_URL}" -OutFile "${escapePs(dlZip)}" -UseBasicParsing`,
+  ].join('; ');
+
+  const dlResult = await runPowershell(downloadScript, {
+    step: '下载 Hermes Agent...',
+    startPercent: 30,
+    endPercent: 60,
+    onProgress: pCb,
+  });
+
+  if (dlResult.code !== 0) {
+    const logText = [...logLines, ...(dlResult.logs ?? [])].join('\n');
+    const diagnosed = diagnoseFailure(logText);
+    return {
+      success: false,
+      message: diagnosed || `下载失败 (退出码 ${dlResult.code})，请检查网络连接后重试。`,
+      nextAction: 'none',
+      logs: logLines.slice(-50),
+    };
+  }
+
+  let srcDir: string;
+  try {
+    srcDir = await extractZip(dlZip);
+  } catch (err) {
+    return {
+      success: false,
+      message: `解压下载包失败: ${String(err)}`,
+      nextAction: 'none',
+      logs: logLines.slice(-50),
+    };
+  }
+
+  const installScript = [
+    'Write-Host "Installing Hermes Agent via pip..."',
+    `${pipCmd} install "${escapePs(srcDir)}" --quiet --disable-pip-version-check`,
   ].join('; ');
 
   const { code, logs } = await runPowershell(installScript, {
