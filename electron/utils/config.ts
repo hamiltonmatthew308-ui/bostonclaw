@@ -7,10 +7,10 @@
  * Port configuration
  */
 export const PORTS = {
-  /** ClawX GUI development server port */
+  /** Bostonclaw GUI development server port */
   CLAWX_DEV: 5173,
   
-  /** ClawX GUI production port (for reference) */
+  /** Bostonclaw GUI production port (for reference) */
   CLAWX_GUI: 23333,
 
   /** Local host API server port */
@@ -36,11 +36,11 @@ export const APP_PATHS = {
   /** OpenClaw configuration directory */
   OPENCLAW_CONFIG: '~/.openclaw',
   
-  /** ClawX configuration directory */
-  CLAWX_CONFIG: '~/.clawx',
+  /** Bostonclaw configuration directory */
+  CLAWX_CONFIG: '~/.bostonclaw',
   
   /** Log files directory */
-  LOGS: '~/.clawx/logs',
+  LOGS: '~/.bostonclaw/logs',
 } as const;
 
 /**

@@ -1,5 +1,5 @@
 {
-    "name": "clawx",
+    "name": "bostonclaw",
     "version": "0.3.3",
     "pnpm": {
         "onlyBuiltDependencies": [
@@ -26,9 +26,9 @@
             ]
         }
     },
-    "description": "ClawX - Graphical AI Assistant based on OpenClaw",
+    "description": "Bostonclaw - Graphical AI Assistant based on OpenClaw",
     "main": "dist-electron/main/index.js",
-    "author": "ClawX Team",
+    "author": "Bostonclaw Team",
     "license": "MIT",
     "private": true,
     "scripts": {
