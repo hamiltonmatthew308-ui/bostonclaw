@@ -17,7 +17,7 @@ const FILENAME = `python-${PYTHON_VERSION}-embed-amd64.zip`;
 const URL = `https://www.python.org/ftp/python/${PYTHON_VERSION}/${FILENAME}`;
 // SHA256 for the exact version above. Update both when bumping PYTHON_VERSION.
 // Verify: https://www.python.org/downloads/release/python-3129/ → "Files" → SHA256
-const SHA256 = 'dab47d2441fb164c57c0d860c5c1c7d19db04a7007cccb27fc749080a8475838';
+const SHA256 = '615861fb801e8b04c847598db4e1e46e4b046295017caa37cb5486dde72b5865';
 
 function getFileSizeMB(filePath) {
   try {
