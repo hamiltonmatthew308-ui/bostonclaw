@@ -8,7 +8,7 @@
  */
 import { existsSync, mkdirSync, cpSync, rmSync, readdirSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
-import { execSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
@@ -37,6 +37,48 @@ function cleanNodeModules(dir) {
   }
 }
 
+function runNpmInstall(tmpDir, attempt) {
+  return new Promise((resolve, reject) => {
+    console.log(`[bundle-openclaw] npm install attempt ${attempt}...`);
+    const child = spawn('npm', [
+      'install',
+      `openclaw@${OPENCLAW_VERSION}`,
+      '--production',
+      '--no-package-lock',
+      '--prefix',
+      tmpDir,
+    ], {
+      stdio: 'inherit',
+      shell: process.platform === 'win32',
+      windowsHide: true,
+    });
+
+    const timer = setTimeout(() => {
+      console.error('[bundle-openclaw] npm install timed out after 10 minutes, killing...');
+      child.kill('SIGTERM');
+      setTimeout(() => child.kill('SIGKILL'), 5000);
+    }, 600_000);
+
+    child.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`npm install exited with code ${code}`));
+      }
+    });
+  });
+}
+
+async function sleep(ms) {
+  await new Promise((r) => setTimeout(r, ms));
+}
+
 async function main() {
   if (existsSync(RESOURCES_DIR)) {
     console.log('[bundle-openclaw] Cleaning existing bundle...');
@@ -48,15 +90,10 @@ async function main() {
   console.log(`[bundle-openclaw] Installing openclaw@${OPENCLAW_VERSION} into ${tmpDir}...`);
 
   const MAX_RETRIES = 3;
-  const INSTALL_TIMEOUT = 600_000; // 10 minutes
   let lastErr;
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      console.log(`[bundle-openclaw] npm install attempt ${attempt}/${MAX_RETRIES}...`);
-      execSync(`npm install openclaw@${OPENCLAW_VERSION} --production --no-package-lock --prefix ${tmpDir}`, {
-        stdio: 'inherit',
-        timeout: INSTALL_TIMEOUT,
-      });
+      await runNpmInstall(tmpDir, attempt);
       lastErr = null;
       break;
     } catch (err) {
@@ -64,7 +101,7 @@ async function main() {
       console.error(`[bundle-openclaw] Attempt ${attempt} failed:`, err.message);
       if (attempt < MAX_RETRIES) {
         console.log('[bundle-openclaw] Retrying in 10s...');
-        execSync('node -e "require(\'timers/promises\').setTimeout(10_000)"', { stdio: 'ignore' });
+        await sleep(10_000);
       }
     }
   }
