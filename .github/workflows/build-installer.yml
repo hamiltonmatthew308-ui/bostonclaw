@@ -6,6 +6,8 @@ on:
       - 'apps/openclaw-installer/**'
       - 'packages/shared/**'
       - '.github/workflows/build-installer.yml'
+    tags:
+      - 'v*'
   pull_request:
     paths:
       - 'apps/openclaw-installer/**'
@@ -59,7 +61,7 @@ jobs:
         run: pnpm --filter bostonclaw-installer build:vite
 
       - name: Package Windows NSIS
-        run: pnpm --filter bostonclaw-installer package:win
+        run: pnpm --filter bostonclaw-installer exec electron-builder --win --publish ${{ github.ref_type == 'tag' && 'always' || 'never' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -116,7 +118,7 @@ jobs:
         run: pnpm --filter bostonclaw-installer build:vite
 
       - name: Package macOS DMG
-        run: pnpm --filter bostonclaw-installer package:mac
+        run: pnpm --filter bostonclaw-installer exec electron-builder --mac --publish ${{ github.ref_type == 'tag' && 'always' || 'never' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
