@@ -15,34 +15,22 @@ import { tmpdir } from 'node:os';
 const RESOURCES_DIR = join(process.cwd(), 'resources', 'openclaw-bundle');
 const OPENCLAW_VERSION = 'latest';
 
+const STRIP_DIRS = new Set(['test', 'tests', '__tests__', 'docs', 'doc', 'examples', 'demo', '.github', '.git']);
+const STRIP_EXTS = new Set(['.ts', '.map', '.md']);
+
 function cleanNodeModules(dir) {
   const items = readdirSync(dir, { withFileTypes: true });
   for (const item of items) {
     const fullPath = join(dir, item.name);
     if (item.isDirectory()) {
-      if (
-        item.name === 'test' ||
-        item.name === 'tests' ||
-        item.name === '__tests__' ||
-        item.name === 'docs' ||
-        item.name === 'doc' ||
-        item.name === 'examples' ||
-        item.name === 'demo' ||
-        item.name === '.github' ||
-        item.name === '.git'
-      ) {
+      if (STRIP_DIRS.has(item.name)) {
         rmSync(fullPath, { recursive: true, force: true });
         continue;
       }
       cleanNodeModules(fullPath);
     } else if (item.isFile()) {
-      if (
-        item.name.endsWith('.d.ts') ||
-        item.name.endsWith('.map') ||
-        item.name.endsWith('.md') ||
-        item.name.endsWith('.ts') ||
-        (item.name.startsWith('.') && item.name !== '.bin')
-      ) {
+      const ext = item.name.substring(item.name.lastIndexOf('.'));
+      if (STRIP_EXTS.has(ext) || (item.name.startsWith('.') && item.name !== '.bin')) {
         unlinkSync(fullPath);
       }
     }

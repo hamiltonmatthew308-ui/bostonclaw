@@ -58,9 +58,11 @@ export interface InstallProgress {
 export interface ProviderConfig {
   id: string;
   name: string;
+  authChoice: string;       // maps to --auth-choice flag in openclaw onboard
+  api?: string;             // e.g. "openai-completions", "anthropic-chat"
   apiKey: string;
-  baseUrl: string;
-  defaultModel: string;
+  baseUrl?: string;         // only for custom providers
+  defaultModelRef: string;  // e.g. "anthropic/claude-opus-4-6"
 }
 
 export interface RouteDecision {

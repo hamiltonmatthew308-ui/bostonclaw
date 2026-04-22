@@ -1,10 +1,11 @@
 import type { EnvReport, InstallPlan, InstallProgress, RunResult, ProviderConfig } from '../../shared/types/installer';
+import { NODE_VERSION, GATEWAY_PORT, OPENCLAW_DIR_NAME } from '../../shared/constants';
 import { detectEnvironment } from '../env/detector';
 import { app } from 'electron';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { existsSync, createWriteStream, readdirSync, cpSync } from 'node:fs';
-import { mkdir, writeFile, readFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { get } from 'node:https';
@@ -13,8 +14,7 @@ import { registerWindowsPath, registerMacPath, registerWindowsStartup, registerM
 
 const execFileAsync = promisify(execFile);
 
-const OPENCLAW_DIR = join(homedir(), '.openclaw');
-const GATEWAY_PORT = 18789;
+const OPENCLAW_DIR = join(homedir(), OPENCLAW_DIR_NAME);
 
 function getUserDataPath(): string {
   try {
@@ -189,20 +189,19 @@ async function ensureNode(env: EnvReport, onProgress: (p: InstallProgress) => vo
   onProgress({ step: '下载 Node.js', percent: 10, log: '未找到离线包，开始下载...' });
 
   const arch = env.os.arch === 'arm64' ? 'arm64' : 'x64';
-  const version = 'v22.14.0';
   let filename: string;
   let ext: string;
 
   if (platform === 'mac') {
-    filename = `node-${version}-darwin-${arch}`;
+    filename = `node-${NODE_VERSION}-darwin-${arch}`;
     ext = 'tar.xz';
     nodeExe = join(runtimeDir, filename, 'bin', 'node');
   } else if (platform === 'linux') {
-    filename = `node-${version}-linux-${arch}`;
+    filename = `node-${NODE_VERSION}-linux-${arch}`;
     ext = 'tar.xz';
     nodeExe = join(runtimeDir, filename, 'bin', 'node');
   } else {
-    filename = `node-${version}-win-x64`;
+    filename = `node-${NODE_VERSION}-win-${arch}`;
     ext = 'zip';
     nodeExe = join(runtimeDir, filename, 'node.exe');
   }
@@ -212,8 +211,8 @@ async function ensureNode(env: EnvReport, onProgress: (p: InstallProgress) => vo
     return nodeExe;
   }
 
-  const url = `https://nodejs.org/dist/${version}/${filename}.${ext}`;
-  const manualUrl = `https://nodejs.org/dist/${version}/`;
+  const url = `https://nodejs.org/dist/${NODE_VERSION}/${filename}.${ext}`;
+  const manualUrl = `https://nodejs.org/dist/${NODE_VERSION}/`;
   const downloadPath = join(runtimeDir, `${filename}.${ext}`);
 
   let lastError: Error | undefined;
@@ -387,9 +386,12 @@ function inferNpmPrefix(cmd: string): string {
 
 function findOpenClawJs(npmPrefix: string): string | null {
   const candidates = [
-    join(npmPrefix, 'node_modules', 'openclaw', 'bin', 'openclaw.js'),
-    join(npmPrefix, 'node_modules', 'openclaw', 'index.js'),
-    join(npmPrefix, 'lib', 'node_modules', 'openclaw', 'bin', 'openclaw.js'),
+    // Primary: the bin entry point declared in package.json
+    join(npmPrefix, 'node_modules', 'openclaw', 'openclaw.mjs'),
+    // Secondary: the compiled runtime
+    join(npmPrefix, 'node_modules', 'openclaw', 'dist', 'entry.js'),
+    // Global install layout
+    join(npmPrefix, 'lib', 'node_modules', 'openclaw', 'openclaw.mjs'),
   ];
   for (const c of candidates) {
     if (existsSync(c)) return c;
@@ -426,63 +428,119 @@ async function registerRuntimePaths(nodePath: string): Promise<void> {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Config & Gateway                                                   */
+/*  Onboard via openclaw CLI                                           */
 /* ------------------------------------------------------------------ */
 
-async function writeOpenClawConfig(provider?: ProviderConfig): Promise<void> {
-  await mkdir(OPENCLAW_DIR, { recursive: true });
-  const configPath = join(OPENCLAW_DIR, 'openclaw.json');
+async function runOnboard(
+  openclawCmd: string,
+  nodePath: string,
+  provider: ProviderConfig,
+  onProgress: (p: InstallProgress) => void,
+): Promise<void> {
+  onProgress({ step: '配置 Provider', percent: 62, log: `运行 openclaw onboard --auth-choice ${provider.authChoice}...` });
 
-  let existing: Record<string, unknown> = {};
-  if (existsSync(configPath)) {
-    try {
-      const raw = await readFile(configPath, 'utf-8');
-      existing = JSON.parse(raw);
-    } catch {
-      // ignore corrupt config
+  const args: string[] = [
+    'onboard',
+    '--non-interactive',
+    '--accept-risk',
+    '--mode', 'local',
+    '--auth-choice', provider.authChoice,
+    '--skip-health',
+  ];
+
+  // Provider-specific flags
+  if (provider.authChoice === 'custom-api-key') {
+    args.push(
+      '--custom-api-key', provider.apiKey,
+      '--custom-compatibility', provider.api === 'anthropic-chat' ? 'anthropic' : 'openai',
+    );
+    if (provider.baseUrl) args.push('--custom-base-url', provider.baseUrl);
+    if (provider.defaultModelRef && !provider.defaultModelRef.startsWith('custom/')) {
+      args.push('--custom-model-id', provider.defaultModelRef);
     }
+  } else {
+    // Standard providers: pass API key via --<authChoice>-api-key flag
+    // e.g. --anthropic-api-key, --openai-api-key, --deepseek-api-key
+    const providerId = provider.authChoice.replace(/-api-key$/, '');
+    const flagName = `--${providerId}-api-key`;
+    args.push(flagName, provider.apiKey);
   }
 
-  const baseConfig = {
-    version: '1.0.0',
-    gateway: {
-      enabled: true,
-      port: GATEWAY_PORT,
-      host: '127.0.0.1',
-    },
-    providers: [] as Array<Record<string, unknown>>,
-    channels: {},
-    plugins: {
-      allow: [],
-      enabled: true,
-      entries: {},
-    },
-    skills: {
-      directories: [join(OPENCLAW_DIR, 'skills')],
-    },
-  };
+  // Set default model after onboard via config set
+  // (onboard does not have a --set-default-model flag)
 
-  const merged = { ...baseConfig, ...existing };
+  // Build spawn command — on Windows may need to go through node directly
+  let spawnCmd = openclawCmd;
+  let spawnArgs = args;
+  let spawnShell = false;
 
-  if (provider) {
-    const providers = Array.isArray(merged.providers) ? [...merged.providers] : [];
-    const idx = providers.findIndex((p: { id?: string }) => p.id === provider.id);
-    const entry = {
-      id: provider.id,
-      name: provider.name,
-      baseUrl: provider.baseUrl,
-      defaultModel: provider.defaultModel,
-      apiKey: provider.apiKey,
-    };
-    if (idx >= 0) {
-      providers[idx] = entry;
+  if (process.platform === 'win32') {
+    const npmPrefix = inferNpmPrefix(openclawCmd);
+    const jsEntry = findOpenClawJs(npmPrefix);
+    if (jsEntry) {
+      spawnCmd = nodePath;
+      spawnArgs = [jsEntry, ...args];
     } else {
-      providers.push(entry);
+      spawnShell = true;
     }
-    merged.providers = providers;
   }
 
-  await writeFile(configPath, JSON.stringify(merged, null, 2), 'utf-8');
+  const result = await new Promise<{ code: number; stdout: string; stderr: string }>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    const errChunks: Buffer[] = [];
+    const child = spawn(spawnCmd, spawnArgs, {
+      shell: spawnShell,
+      windowsHide: true,
+      env: {
+        ...process.env,
+        OPENCLAW_HOME: OPENCLAW_DIR,
+      },
+      timeout: 120_000,
+    });
+    child.stdout?.on('data', (d: Buffer) => chunks.push(d));
+    child.stderr?.on('data', (d: Buffer) => errChunks.push(d));
+    child.on('error', reject);
+    child.on('close', (code) => {
+      resolve({
+        code: code ?? 1,
+        stdout: Buffer.concat(chunks).toString(),
+        stderr: Buffer.concat(errChunks).toString(),
+      });
+    });
+  });
+
+  if (result.code !== 0) {
+    const hint = result.stderr.trim() || result.stdout.trim();
+    throw new Error(`openclaw onboard 失败 (exit ${result.code}): ${hint.slice(0, 200)}`);
+  }
+
+  // Set default model via config set command
+  if (provider.defaultModelRef && !provider.defaultModelRef.startsWith('custom/')) {
+    onProgress({ step: '设置默认模型', percent: 68, log: `设置默认模型: ${provider.defaultModelRef}` });
+    const configSetArgs = ['config', 'set', 'agents.defaults.model.primary', provider.defaultModelRef];
+    if (process.platform === 'win32') {
+      const npmPrefix = inferNpmPrefix(openclawCmd);
+      const jsEntry = findOpenClawJs(npmPrefix);
+      if (jsEntry) {
+        await execSpawn(nodePath, [jsEntry, ...configSetArgs]);
+      } else {
+        await execSpawn(openclawCmd, configSetArgs, true);
+      }
+    } else {
+      await execSpawn(openclawCmd, configSetArgs);
+    }
+  }
+
+  onProgress({ step: '配置完成', percent: 70, log: 'Provider 配置成功' });
+}
+
+/** Helper to exec a command and return exit code + output */
+function execSpawn(cmd: string, args: string[], useShell = false): Promise<number> {
+  return new Promise((resolve) => {
+    const child = spawn(cmd, args, { shell: useShell, windowsHide: true });
+    child.on('close', (code) => resolve(code ?? 1));
+    child.on('error', () => resolve(1));
+  });
 }
 
 async function startGateway(
@@ -498,19 +556,17 @@ async function startGateway(
   const logStream = createWriteStream(logPath, { flags: 'a' });
 
   const args = ['gateway', 'run', `--port=${GATEWAY_PORT}`, '--verbose'];
-  const isWin = process.platform === 'win32';
 
   let spawnCmd = openclawCmd;
   let spawnArgs = args;
   let spawnShell = false;
 
-  if (isWin) {
+  if (process.platform === 'win32') {
     const npmPrefix = inferNpmPrefix(openclawCmd);
     const jsEntry = findOpenClawJs(npmPrefix);
     if (jsEntry) {
       spawnCmd = nodePath;
       spawnArgs = [jsEntry, ...args];
-      spawnShell = false;
     } else {
       spawnShell = true;
     }
@@ -637,8 +693,13 @@ export async function run(plan: InstallPlan, onProgress: (p: InstallProgress) =>
     await registerRuntimePaths(nodePath);
     pushLog('PATH 已更新');
 
-    await writeOpenClawConfig(plan.provider);
-    pushLog('配置已写入');
+    // Configure provider via openclaw onboard
+    if (plan.provider) {
+      await runOnboard(openclawCmd, nodePath, plan.provider, onProgress);
+      pushLog('Provider 配置完成');
+    } else {
+      onProgress({ step: '跳过配置', percent: 65, log: '未选择 Provider，跳过配置（稍后可通过 openclaw onboard 配置）' });
+    }
 
     await startGateway(openclawCmd, nodePath, onProgress);
     pushLog('Gateway 启动成功');

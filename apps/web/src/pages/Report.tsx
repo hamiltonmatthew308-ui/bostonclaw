@@ -123,7 +123,7 @@ export function Report() {
             </p>
           </div>
 
-          <div className="dashboard-grid" style={{ marginTop: '36px' }}>
+          <div style={{ marginTop: '36px', display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '20px' }}>
             <article className="dashboard-panel reveal-card" style={{ borderColor: '#B8A898' }}>
               <div className="panel-head">
                 <h3 style={{ color: '#8A7B6B' }}>传统方式</h3>

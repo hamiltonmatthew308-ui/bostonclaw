@@ -1,7 +1,107 @@
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { initSectionReveals } from '../animations'
 import { useHubData } from '../hooks/useHubData'
+
+const MORPH_WORDS = [
+  'oston', 'rilliant', 'eauty', 'andao', 'old',
+  'rave', 'ridge', 'eyond', 'oundless', 'reakthrough',
+]
+
+function BBlockHero() {
+  const [wordIdx, setWordIdx] = useState(0)
+  const [transitioning, setTransitioning] = useState(false)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    intervalRef.current = setInterval(() => {
+      setTransitioning(true)
+      setTimeout(() => {
+        setWordIdx((i) => (i + 1) % MORPH_WORDS.length)
+        setTransitioning(false)
+      }, 400)
+    }, 2400)
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+  }, [])
+
+  return (
+    <div style={{
+      textAlign: 'center',
+      padding: '80px 24px 48px',
+    }}>
+      {/* Block B Logo */}
+      <div style={{ width: 80, height: 80, margin: '0 auto 32px', color: '#D4401A' }}>
+        <svg viewBox="0 0 100 100" fill="none" width="80" height="80">
+          <rect x="8" y="8" width="84" height="84" rx="16" fill="currentColor" />
+          <path d="M 30 24 L 30 76 M 30 24 L 56 24 C 68 24, 68 48, 56 48 L 30 48 M 30 48 L 54 48 C 68 48, 68 76, 54 76 L 30 76" fill="none" stroke="#FAFAF8" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+
+      {/* Stacked wordmark */}
+      <div style={{ display: 'inline-block' }}>
+        {/* Line 1: B [morphing word] */}
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center' }}>
+          <span style={{
+            fontFamily: "'Archivo Black', sans-serif",
+            fontSize: 'clamp(40px, 8vw, 64px)',
+            fontWeight: 900,
+            color: '#1B1712',
+            letterSpacing: '-0.03em',
+          }}>B</span>
+          <span style={{
+            display: 'inline-block',
+            position: 'relative',
+            width: 'clamp(120px, 20vw, 260px)',
+            height: 'clamp(40px, 8vw, 64px)',
+            overflow: 'hidden',
+          }}>
+            <span style={{
+              fontFamily: "'IBM Plex Mono', monospace",
+              fontSize: 'clamp(20px, 4vw, 32px)',
+              fontWeight: 500,
+              color: '#D4401A',
+              letterSpacing: '0.02em',
+              position: 'absolute',
+              left: 0,
+              bottom: 0,
+              whiteSpace: 'nowrap',
+              transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+              transform: transitioning ? 'translateY(120%)' : 'translateY(0)',
+              opacity: transitioning ? 0 : 1,
+            }}>{MORPH_WORDS[wordIdx]}</span>
+          </span>
+        </div>
+
+        {/* Line 2: — Block */}
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center' }}>
+          <span style={{
+            fontWeight: 200,
+            color: '#8A7B6B',
+            fontSize: 'clamp(20px, 4vw, 32px)',
+            marginRight: 10,
+          }}>—</span>
+          <span style={{
+            fontFamily: "'Archivo Black', sans-serif",
+            fontSize: 'clamp(40px, 8vw, 64px)',
+            fontWeight: 900,
+            color: '#1B1712',
+            letterSpacing: '-0.03em',
+          }}>Block</span>
+        </div>
+      </div>
+
+      <p style={{
+        fontFamily: "'IBM Plex Mono', monospace",
+        fontSize: 12,
+        color: '#8A7B6B',
+        letterSpacing: '0.06em',
+        marginTop: 20,
+      }}>
+        AI Agent 安装器 &middot; 技能市场 &middot; 开发者社区
+      </p>
+    </div>
+  )
+}
 
 export function Community() {
   const hub = useHubData()
@@ -14,6 +114,8 @@ export function Community() {
     <div className="page-shell">
       <div className="paper-noise" />
       <Link to="/" className="back-link">← 返回首页</Link>
+
+      <BBlockHero />
 
       <section className="editorial-section">
         <div className="content-frame">

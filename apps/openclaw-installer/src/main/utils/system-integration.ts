@@ -1,61 +1,56 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { existsSync } from 'node:fs';
-import { readFile, writeFile, appendFile } from 'node:fs/promises';
+import { readFile, writeFile, appendFile, mkdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 const execFileAsync = promisify(execFile);
 
 /* ------------------------------------------------------------------ */
-/*  PATH helpers                                                       */
+/*  PowerShell helper                                                  */
+/* ------------------------------------------------------------------ */
+
+function escapePs(s: string): string {
+  // Escape characters that have special meaning inside PowerShell double-quoted strings
+  return s.replace(/(["'$`\\])/g, '`$1');
+}
+
+async function runPs(script: string): Promise<string> {
+  const { stdout } = await execFileAsync('powershell.exe', [
+    '-NoProfile', '-Command', script,
+  ], { windowsHide: true });
+  return stdout.trim();
+}
+
+/* ------------------------------------------------------------------ */
+/*  PATH registration                                                  */
 /* ------------------------------------------------------------------ */
 
 function normalizePath(p: string): string {
   return p.replace(/\\/g, '/');
 }
 
-async function getWindowsPath(): Promise<string> {
-  const { stdout } = await execFileAsync('powershell.exe', [
-    '-NoProfile',
-    '-Command',
-    '[Environment]::GetEnvironmentVariable("Path", "User")',
-  ], { windowsHide: true });
-  return stdout.trim();
-}
-
 export async function registerWindowsPath(newPath: string): Promise<boolean> {
-  const current = await getWindowsPath();
+  const current = await runPs('[Environment]::GetEnvironmentVariable("Path", "User")');
   const normalizedNew = normalizePath(newPath);
   const parts = current.split(';').map((p) => normalizePath(p.trim())).filter(Boolean);
 
-  if (parts.includes(normalizedNew)) {
-    return false; // already present
-  }
+  if (parts.includes(normalizedNew)) return false;
 
   const updated = [...parts, normalizedNew].join(';');
-  await execFileAsync('powershell.exe', [
-    '-NoProfile',
-    '-Command',
-    `[Environment]::SetEnvironmentVariable("Path", "${updated}", "User")`,
-  ], { windowsHide: true });
-
+  await runPs(`[Environment]::SetEnvironmentVariable("Path", "${escapePs(updated)}", "User")`);
   return true;
 }
 
 export async function registerMacPath(newPath: string): Promise<boolean> {
   const shell = process.env.SHELL?.includes('bash') ? '.bash_profile' : '.zshrc';
   const rcPath = join(homedir(), shell);
-
   const line = `export PATH="${newPath}:$PATH"`;
 
-  let content = '';
   if (existsSync(rcPath)) {
-    content = await readFile(rcPath, 'utf-8');
-  }
-
-  if (content.includes(newPath)) {
-    return false;
+    const content = await readFile(rcPath, 'utf-8');
+    if (content.includes(newPath)) return false;
   }
 
   await appendFile(rcPath, `\n# Bostonclaw PATH\n${line}\n`, 'utf-8');
@@ -63,28 +58,34 @@ export async function registerMacPath(newPath: string): Promise<boolean> {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Startup helpers                                                    */
+/*  Startup registration                                               */
 /* ------------------------------------------------------------------ */
 
 export async function registerWindowsStartup(name: string, command: string): Promise<void> {
-  await execFileAsync('powershell.exe', [
-    '-NoProfile',
-    '-Command',
-    `Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" -Name "${name}" -Value "${command}"`,
-  ], { windowsHide: true });
+  await runPs(
+    `Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" ` +
+    `-Name "${escapePs(name)}" -Value "${escapePs(command)}"`,
+  );
 }
 
 export async function unregisterWindowsStartup(name: string): Promise<void> {
-  await execFileAsync('powershell.exe', [
-    '-NoProfile',
-    '-Command',
-    `Remove-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" -Name "${name}" -ErrorAction SilentlyContinue`,
-  ], { windowsHide: true });
+  await runPs(
+    `Remove-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run" ` +
+    `-Name "${escapePs(name)}" -ErrorAction SilentlyContinue`,
+  );
 }
 
 export async function registerMacStartup(name: string, command: string): Promise<void> {
   const plistDir = join(homedir(), 'Library', 'LaunchAgents');
+  await mkdir(plistDir, { recursive: true });
   const plistPath = join(plistDir, `${name}.plist`);
+
+  // Escape XML-special characters in command for plist
+  const escapedCmd = command
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 
   const plist = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -96,7 +97,7 @@ export async function registerMacStartup(name: string, command: string): Promise
   <array>
     <string>/bin/sh</string>
     <string>-c</string>
-    <string>${command}</string>
+    <string>${escapedCmd}</string>
   </array>
   <key>RunAtLoad</key>
   <true/>

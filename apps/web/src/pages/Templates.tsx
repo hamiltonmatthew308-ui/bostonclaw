@@ -17,10 +17,6 @@ export function Templates() {
       <Link to="/" className="back-link">← 返回首页</Link>
       <TemplateLibrarySection
         copiedInstallCode={hub.copiedInstallCode}
-        activeCategory={hub.activeCategory}
-        categories={hub.categories}
-        filteredTemplates={hub.filteredTemplates}
-        onCategoryChange={hub.setActiveCategory}
         onCopyInstallCode={hub.copyInstallCode}
       />
     </div>

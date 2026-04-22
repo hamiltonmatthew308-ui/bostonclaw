@@ -21,7 +21,7 @@ function getTarget() {
   if (platform === 'linux') {
     return { filename: `node-${VERSION}-linux-${arch}.tar.xz`, ext: 'tar.xz' };
   }
-  return { filename: `node-${VERSION}-win-x64.zip`, ext: 'zip' };
+  return { filename: `node-${VERSION}-win-${arch}.zip`, ext: 'zip' };
 }
 
 function download(url, dest) {
