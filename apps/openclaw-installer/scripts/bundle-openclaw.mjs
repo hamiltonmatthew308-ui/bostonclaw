@@ -47,13 +47,29 @@ async function main() {
   const tmpDir = mkdtempSync(join(tmpdir(), 'openclaw-bundle-'));
   console.log(`[bundle-openclaw] Installing openclaw@${OPENCLAW_VERSION} into ${tmpDir}...`);
 
-  try {
-    execSync(`npm install openclaw@${OPENCLAW_VERSION} --production --no-package-lock --prefix ${tmpDir}`, {
-      stdio: 'inherit',
-      timeout: 300_000,
-    });
-  } catch (err) {
-    console.error('[bundle-openclaw] npm install failed:', err.message);
+  const MAX_RETRIES = 3;
+  const INSTALL_TIMEOUT = 600_000; // 10 minutes
+  let lastErr;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      console.log(`[bundle-openclaw] npm install attempt ${attempt}/${MAX_RETRIES}...`);
+      execSync(`npm install openclaw@${OPENCLAW_VERSION} --production --no-package-lock --prefix ${tmpDir}`, {
+        stdio: 'inherit',
+        timeout: INSTALL_TIMEOUT,
+      });
+      lastErr = null;
+      break;
+    } catch (err) {
+      lastErr = err;
+      console.error(`[bundle-openclaw] Attempt ${attempt} failed:`, err.message);
+      if (attempt < MAX_RETRIES) {
+        console.log('[bundle-openclaw] Retrying in 10s...');
+        execSync('node -e "require(\'timers/promises\').setTimeout(10_000)"', { stdio: 'ignore' });
+      }
+    }
+  }
+  if (lastErr) {
+    console.error('[bundle-openclaw] npm install failed after all retries');
     process.exit(1);
   }
 
